@@ -1,0 +1,163 @@
+using System;
+using NUnit.Framework;
+using Swarmforge.Simulation;
+
+namespace Swarmforge.Tests
+{
+    public sealed class V12P2PlayableTests
+    {
+        private static V12TrialSimulation NewTrial(int hp = 2)
+        {
+            return new V12TrialSimulation(new V12MatchConfig(V12P2Presets.Create(hp)));
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void P2_SeparateHpProfiles_AreExactlyOneParameterApart(int hp)
+        {
+            V12BalanceDefinition a = V12P2Presets.Create(2);
+            V12BalanceDefinition b = V12P2Presets.Create(3);
+            Assert.That(a.MiniBotMaxHP, Is.EqualTo(2));
+            Assert.That(b.MiniBotMaxHP, Is.EqualTo(3));
+            Assert.That(a.MatchTicks, Is.EqualTo(1800));
+            Assert.That(a.Boxes.Length, Is.EqualTo(1));
+            Assert.That(a.Boxes[0].MaxHP, Is.EqualTo(5));
+            Assert.That(a.Boxes[0].Multiplier, Is.EqualTo(2));
+            Assert.That(a.Boxes[0].DurationTicks, Is.EqualTo(360));
+            Assert.That(a.Waves.Length, Is.EqualTo(1));
+            Assert.That(a.Waves[0].Spawns.Length, Is.EqualTo(2));
+            Assert.That(new V12MatchConfig(a).ConfigHash, Is.Not.EqualTo(new V12MatchConfig(b).ConfigHash));
+            Assert.That(NewTrial(hp).MatchConfig.CreateEditableCopy().MiniBotMaxHP, Is.EqualTo(hp));
+        }
+
+        [Test]
+        public void Box_ExactlyFiveContacts_Break_AndGrantNextTickX2For360Ticks()
+        {
+            V12TrialSimulation sim = NewTrial();
+            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            int rewardTick = -1;
+            for (int t = 0; t < 120 && rewardTick < 0; t++)
+            {
+                V12TrialSnapshot s = sim.AdvanceOneTick();
+                foreach (V12TrialEvent e in s.RecentEvents)
+                    if (e.Kind == V12TrialEventKind.RewardEarned) rewardTick = (int)e.Time.Tick;
+            }
+            Assert.That(rewardTick, Is.GreaterThanOrEqualTo(0), "Five bots must actually reach the box.");
+            V12TrialSnapshot afterImpact = sim.Snapshot();
+            Assert.That(afterImpact.BoxHP, Is.EqualTo(0));
+            Assert.That(afterImpact.BoxHits, Is.EqualTo(5));
+            Assert.That(afterImpact.BoostMultiplier, Is.EqualTo(1), "Reward cannot affect the impact tick.");
+            Assert.That(afterImpact.QueuedMultiplier, Is.EqualTo(2));
+            Assert.That(afterImpact.TerminalPromises, Is.EqualTo(0));
+            sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(2));
+            Assert.That(sim.Snapshot().BoostRemainingTicks, Is.EqualTo(360));
+            for (int t = rewardTick + 2; t <= rewardTick + 360; t++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(2), "End tick must be exclusive.");
+            sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Capacity_OneActiveOneQueued_AndReservedTerminalCannotOvercommit()
+        {
+            var ledger = new V12BoostLedger();
+            Assert.That(ledger.ReserveTerminal(), Is.True);
+            ledger.Earn(2, 360, 0, true);
+            Assert.That(ledger.HasPending, Is.True);
+            Assert.That(ledger.BeginTick(1), Is.True);
+            Assert.That(ledger.ActiveMultiplier, Is.EqualTo(2));
+            Assert.That(ledger.ActiveEndsAtTick, Is.EqualTo(361));
+            Assert.That(ledger.ReserveTerminal(), Is.True);
+            ledger.Earn(3, 90, 5, true);
+            Assert.That(ledger.OccupiedSlots, Is.EqualTo(2));
+            Assert.That(ledger.CanReserve, Is.False);
+            Assert.That(ledger.ReserveTerminal(), Is.False);
+            Assert.Throws<InvalidOperationException>(() => ledger.Earn(5, 20, 6, false));
+            Assert.That(ledger.BeginTick(360), Is.False);
+            Assert.That(ledger.BeginTick(361), Is.True);
+            Assert.That(ledger.ActiveMultiplier, Is.EqualTo(3));
+            Assert.That(ledger.ActiveEndsAtTick, Is.EqualTo(451));
+        }
+
+        [Test]
+        public void GroupWave_ExactlyFourEnemiesShareTick180()
+        {
+            V12TrialSimulation sim = NewTrial();
+            for (int i = 0; i <= 180; i++) sim.AdvanceOneTick();
+            V12TrialSnapshot s = sim.Snapshot();
+            Assert.That(s.WaveGroupsSpawned, Is.EqualTo(1));
+            Assert.That(s.EnemiesSpawned, Is.EqualTo(4));
+            int onSameTick = 0;
+            foreach (V12TrialEvent e in s.RecentEvents)
+                if (e.Kind == V12TrialEventKind.EnemySpawned && e.Time.Tick == 180) onSameTick++;
+            Assert.That(onSameTick, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Combat_CollisionCommitsBotAndEnemyPreHpDamage()
+        {
+            V12BalanceDefinition config = V12P2Presets.Create(2);
+            config.Boxes[0] = new V12BoxBalance("X2", 800, 9000, 450, 5, 2, 360);
+            config.Waves[0] = new V12WaveBalance(1, 0, new[] { new V12WaveSpawn("SCOUT", -1, 1) });
+            config.EnemyPathLength = 1800;
+            config.EnemyTypes[0] = new V12EnemyBalance("SCOUT", 1, 1, 230, 15);
+            var sim = new V12TrialSimulation(new V12MatchConfig(config));
+            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            for (int t = 0; t < 11; t++) sim.AdvanceOneTick();
+            bool botHit = false, enemyHit = false, destroyed = false;
+            foreach (V12TrialEvent e in sim.History)
+            {
+                if (e.Kind == V12TrialEventKind.BotStruck) botHit = true;
+                if (e.Kind == V12TrialEventKind.EnemyStruck) enemyHit = true;
+                if (e.Kind == V12TrialEventKind.EnemyDestroyed) destroyed = true;
+            }
+            Assert.That(botHit, Is.True);
+            Assert.That(enemyHit, Is.True, "Killing the enemy in the same batch must not suppress its retaliation.");
+            Assert.That(destroyed, Is.True);
+        }
+
+        [Test]
+        public void Terminal_FortressZeroMeansVictory()
+        {
+            V12BalanceDefinition cfg = V12P2Presets.Create(2);
+            cfg.FortressHP = 1;
+            var sim = new V12TrialSimulation(new V12MatchConfig(cfg));
+            for (int i = 0; i < 200 && !sim.IsTerminal; i++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.Win));
+        }
+
+        [Test]
+        public void Terminal_AllFourEnemiesBreachMeansDefeat()
+        {
+            var sim = NewTrial();
+            for (int i = 0; i < 520 && !sim.IsTerminal; i++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.LoseBase));
+        }
+
+        [Test]
+        public void Replay_IdenticalCommandsProduceIdenticalEventAndStateHashes()
+        {
+            V12TrialSimulation left = NewTrial(3), right = NewTrial(3);
+            Assert.That(left.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(right.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(left.SubmitAim(240, 2, 800), Is.True);
+            Assert.That(right.SubmitAim(240, 2, 800), Is.True);
+            for (int i = 0; i < 420 && !left.IsTerminal && !right.IsTerminal; i++)
+            {
+                V12TrialSnapshot a = left.AdvanceOneTick();
+                V12TrialSnapshot b = right.AdvanceOneTick();
+                Assert.That(a.StateHash, Is.EqualTo(b.StateHash), "Divergence on tick " + i);
+                Assert.That(a.EventHash, Is.EqualTo(b.EventHash));
+            }
+        }
+
+        [Test]
+        public void P2_DoesNotOverwriteP1_ThreeBoxBalanceFixture()
+        {
+            V12BalanceDefinition original = V12BalanceDefinition.CreateTrialPreset(2);
+            Assert.That(original.Boxes.Length, Is.EqualTo(3));
+            Assert.That(V12P2Presets.Create(2).Boxes.Length, Is.EqualTo(1));
+        }
+    }
+}

@@ -8,4 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Swarmforge/Scenes/Battle.unity
     guid: 08a1145b0f8e4a0f83dfb6bd00d1c8f7
+  - enabled: 1
+    path: Assets/Swarmforge/Scenes/V12_Trial.unity
+    guid: e8ddf809680403d2889a951cb77128eb
   m_configObjects: {}
