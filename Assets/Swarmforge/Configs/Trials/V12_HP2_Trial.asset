@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57ed681891864350be32bb9198b12ad7, type: 3}
+  m_Name: V12_HP2_Trial
+  m_EditorClassIdentifier:
+  data:
+    SchemaVersion: 2
+    RulesetId: SWARMFORGE_V12_TRIAL
+    LevelId: V12_TRIAL_ARENA
+    ProfileId: HP2_TRIAL
+    TickRate: 30
+    MatchTicks: 1800
+    FirstShotTick: 0
+    ShotPeriodTicks: 10
+    BaseHP: 3
+    FortressHP: 100
+    MiniBotMaxHP: 2
+    MiniBotDamage: 1
+    MiniBotSpeedPerTick: 340
+    MiniBotContactCooldownTicks: 15
+    CannonMinX: -1000
+    CannonMaxX: 1000
+    AttackPathLength: 51000
+    EnemyPathLength: 51000
+    ContactRadius: 450
+    EnemyTypes:
+    - Key: SCOUT
+      MaxHP: 1
+      Damage: 1
+      SpeedPerTick: 230
+      ContactCooldownTicks: 15
+    - Key: ARMORED_TRIAL
+      MaxHP: 3
+      Damage: 1
+      SpeedPerTick: 180
+      ContactCooldownTicks: 15
+    Boxes:
+    - Key: X2
+      X: -800
+      Position: 9000
+      Radius: 450
+      MaxHP: 5
+      Multiplier: 2
+      DurationTicks: 360
+    - Key: X3
+      X: 0
+      Position: 9000
+      Radius: 450
+      MaxHP: 10
+      Multiplier: 3
+      DurationTicks: 300
+    - Key: X5
+      X: 800
+      Position: 9000
+      Radius: 450
+      MaxHP: 25
+      Multiplier: 5
+      DurationTicks: 180
+    Waves:
+    - Tick: 360
+      WarningLeadTicks: 90
+      Spawns:
+      - EnemyKey: SCOUT
+        Lane: -1
+        Count: 2
+      - EnemyKey: SCOUT
+        Lane: 1
+        Count: 2
