@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f42b5b4623094b19a9e13c97196280e7, type: 3}
+  m_Name: VS01_Arena
+  m_EditorClassIdentifier:
+  data:
+    LevelId: VS01_TEST_ARENA
+    ConfigVersion: 1
+    TickRate: 30
+    MatchTicks: 1800
+    FirstShotTick: 0
+    ShotPeriodTicks: 10
+    BaseHP: 3
+    FortressHP: 90
+    FixedUnitsPerWorldUnit: 3000
+    MiniBotSpeedPerTick: 340
+    EnemySpeedPerTick: 230
+    GatePosition: 9000
+    AttackPathLength: 51000
+    EnemyPathLength: 51000
+    GateLeftMaxX: -120
+    GateRightMinX: 120
+    LeftGateMultiplier: 2
+    RightGateMultiplier: 3
+    ContactRadius: 450
+    CannonMinX: -1000
+    CannonMaxX: 1000
+    MaxVisibleMiniBots: 120
+    EnemyWaves:
+    - Tick: 360
+      Left: 1
+      Right: 1
