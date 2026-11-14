@@ -1,0 +1,7 @@
+{
+  "name": "Swarmforge.Simulation",
+  "rootNamespace": "Swarmforge.Simulation",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

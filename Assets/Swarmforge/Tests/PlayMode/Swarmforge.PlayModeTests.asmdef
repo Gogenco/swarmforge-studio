@@ -1,0 +1,10 @@
+{
+  "name": "Swarmforge.PlayModeTests",
+  "rootNamespace": "Swarmforge.Tests",
+  "references": ["Swarmforge.Simulation", "Swarmforge.Presentation"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "overrideReferences": true,
+  "precompiledReferences": ["nunit.framework.dll"],
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "autoReferenced": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Swarmforge.Editor",
+  "rootNamespace": "Swarmforge.Editor",
+  "references": ["Swarmforge.Presentation", "Swarmforge.Infrastructure", "Swarmforge.Simulation", "Unity.RenderPipelines.Universal.Runtime"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
