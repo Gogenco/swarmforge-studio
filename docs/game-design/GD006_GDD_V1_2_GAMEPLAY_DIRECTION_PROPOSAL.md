@@ -123,55 +123,55 @@ All totals are **upper ideal arithmetic**: only shots fired in ATTACK while mult
 **Sequential example:** box×2 final hit at2.821s triggers activation **at tick85=2.833s**. A second box×3 final hit around6.155s is queued while ×2 runs; it **does not overlap** or become ×6. ×2 expires **at tick445=14.833s**, and queued ×3 becomes active on that same boundary with its full **300 ticks**, until **tick745=24.833s**. No gap, no overlap, no per-shot quota. Timed exactness is a Designer-accepted **ARCH #23 prototype proposal**, not Owner-final gameplay tuning.
 
 **Wave spike fairness:** upgrades do not trigger enemy instant-level scaling; next authored wave retains its scheduled spawn and HP. Recommended telemetry: time from reward activation to first serious base threat, damage handled during window, buff seconds spent ATTACK, base breaches before/after reward. These are not playtest findings.
-## 7. Survival-capable MiniBots, multi-hit enemies and comparable presets
+## 7. Survival-capable MiniBots, multi-attacker combat and matched presets
 
-**APPROVED DIRECTION:** MiniBots have more than one HP and can survive combat contacts. Enemies, including armored types, also have HP and arrive in groups. **NOT APPROVED:** MiniBot max HP2 versus HP3; raw damage, combat attack interval, enemy damage, stops/movement while engaged, exact target selection and boss HP. A box hit **always consumes** the MiniBot on successful damage regardless of friendly combat HP.
+**APPROVED DIRECTION:** friendly MiniBots survive some enemy contacts; enemies have multiple HP and enter in same-tick groups. **UNAPPROVED:** friendly HP2 vs HP3, damage/cooldown, radius, target policy, engagement motion and boss health. A successful **box** damage hit *always consumes* the hitting MiniBot, whatever its current combat HP.
 
-### Proposed minimal deterministic combat model (for Architect review only)
+### GITHUB-006 provisional Designer/Architect trial combat contract — aligned to ARCH #23 HEAD 575f7ecd
 
-1. Every MiniBot and enemy has max/current integer HP and attackDamage. **PLAYTEST defaults:** friendly damage1, enemy damage1, configurable **AttackCooldownTicks=15 (>0)**. At first swept contact within tick k, the two eligible actors exchange immediate **simultaneous** damage using a pre-exchange alive snapshot. First repeat is eligible at **tick k+1+AttackCooldownTicks** per ARCH #23; **trial design recommendation** for subsequent repeats is `repeatTick + AttackCooldownTicks` with positive interval. The cooldown is measured by deterministic 30Hz ticks, never render frames.
-2. **PROPOSED BOUNDED PAIR CONTRACT:** one MiniBot may engage at most one enemy and vice versa. Paired actors pause route motion and repeat combat only against that partner; **no third actor joins an occupied engagement** in Stage P2. At equal time, choose unengaged pairs by **EnemyId ASC then MiniBotId ASC** and revalidate eligibility; other units continue their routes or form another eligible pair. A contact does **not** automatically destroy a MiniBot. When one partner dies, surviving partner resumes its originally assigned path **next tick**, not by instant same-tick retarget loop.
-3. **Only the two members of each eligible pair** exchange damage simultaneously from their pre-exchange alive snapshot. If both die on that strike, both legitimate damages count and neither resumes. The next strike is forbidden until the positive repeat cooldown, even if rectangle hitboxes still overlap. Damage from **different** pairs at equal time is deterministic via stable IDs. No first-kill advantage, no multi-attacker focus fire on one occupied enemy in Stage P2.
-4. Damage and cooldown checks belong to simulation, never animation or collision callbacks alone. UnitId/EnemyId, target lock, lastHitTick, HP and encounter phase must be replayable and deterministic.
-5. To keep the siege economy readable, **PROPOSED:** any MiniBot that reaches the *enemy fortress* deals **one fortress damage and is consumed**, even if its combat HP remained >0; no repeated fortress hits per one survivor without Owner approval.
-6. Three home-base breaches at baseline3HP still cause defeat; **PROPOSED** every enemy, boss included, deals1 breach HP on crossing. This prevents one untested boss arrival causing instant three-HP defeat.
-7. This **single-pair stationary engagement** is simpler than the previous GDD's multi-attacker gang combat and is a **provisional trial contract**, not the final fun/balance rule. Dense groups still pressure through several **parallel pairs and unengaged runners**. Architect must confirm exact contact candidate revalidation and cooldown timing at GDD HEAD; Owner may request alternate group combat after P2 playtests.
+1. **Many allies may fight one enemy.** Each MiniBot is engaged with **at most one EnemyId** at once. One enemy can be engaged by **multiple MiniBots** simultaneously. Candidates come from actual fixed-point 2D swept-contact intersections, not lane labels. Assign ties by closest **squared fixed-point distance**, then EnemyId/MiniBotId ascending; new eligible arrivals may join an existing enemy engagement.
+2. **Exact-time simultaneous damage batch.** At a common exact rational contact/strike time (k,τ), assign all eligible participants, snapshot their current HP/alive states, then each eligible MiniBot strikes its chosen enemy **once**. Each eligible enemy strikes **one** chosen MiniBot (nearest squared distance, then lowest ID), **not every bot touching it**. Sum all attacks by target and apply integer damage **simultaneously**; a combatant killed in the batch still deals its pre-eligible strike, never later strikes.
+3. **Positive actor-specific cooldown.** Every MiniBot and Enemy has editable AttackCooldownTicks **C≥1** (P2/P3 common trial default **C=15** at30Hz). After an actor strikes at rational time t=k+τ (in tick units), it is next eligible **no earlier than t+C**; new allies can strike on their own first contact without resetting enemy cooldown. If repeat strikes only schedule at integer tick starts, first repeat is at **ceil(k+τ+C)** (τ=0 can repeat at k+C; τ>0 at k+C+1). Subsequent integer-boundary strikes repeat at +C ticks. No damage per rendered frame or repeated within an exact-time bucket.
+4. **Motion and survivor route.** Engaged participants pause their forward routes. On enemy death, every surviving allied MiniBot resumes its original immutable route **next tick** (a box-bound survivor retains box target). On all MiniBot deaths, surviving enemy resumes base route next tick. No instant same-tick acquire-a-second-enemy loop. A MiniBot reaching its assigned box at **the exact same TOI** as enemy combat may still damage box **after** the simultaneous enemy combat batch *only if alive, its reservation valid and box HP>0*, then is consumed on the successful box hit (§10/§14).
+5. **Spawn and sort deterministically.** Stable UnitId, EnemyId, engagement target and NextEligibleStrikeTime enter StateHash/EventHash. Same-time candidate order uses rational TOI, then squared distance and stable IDs. No actor may attack twice in a bucket; stale contacts rechecked after HP/state mutation; no random list-order advantage.
+6. **Objective contract PROPOSED:** a surviving MiniBot that reaches enemy fortress deals1 fortress HP and is consumed; boss/enemy breaches cost1 friendly-base HP. These are not final Owner choices. MiniBot HP remains an editable preset, not code constant.
+7. This **multi-attacker batch** is the **one provisional P2 ruleset accepted by Designer for Architect exact-head reconciliation**, replacing our previous exclusive-pair proposal. It fits the robot-swarm fantasy but may amplify group strength; no final balance claim until P2 runtime tests.
 
-### Two deliberately **unapproved** presets with identical scripted inputs
+### Two deliberately **UNAPPROVED** matched P2/P3 HP presets
 
-| Editable key | HP2 preset P2 | HP3 preset P3 | Owner approval |
+| Editable balance key | Preset P2 | Preset P3 | Status |
 |---|---:|---:|---|
-| friendly.miniBot.maxHp | **2** | **3** | **DEFERRED until playtest** |
-| friendly.miniBot.damage | 1 | 1 | PROPOSED common control |
-| combat.cooldownTicks | 15 | 15 | PROPOSED common control (30Hz) |
-| enemy.defaultDamage | 1 | 1 | PROPOSED common control |
-| combat.engagementRadius | 0.6u | 0.6u | PROPOSED common control |
-| cannon.rawRatePerSecond | 3 | 3 | PROPOSED common control |
-| box.hp.x2/x3/x5 | 5/10/25 | 5/10/25 | **APPROVED INITIAL**, tunable later |
-| boost.seconds.x2/x3/x5 | 12/10/6 | 12/10/6 | **APPROVED INITIAL**, tunable later |
-| wave composition, boss, fortress, scripted input seed | identical | identical | PROPOSED comparison control |
+| friendly.miniBot.maxHP | **2** | **3** | Explicitly DEFERRED pending Owner playtest |
+| friendly.miniBot.attackDamage | 1 | 1 | Trial hypothesis, same in both |
+| enemy.attackDamage | 1 | 1 | Trial hypothesis, same in both |
+| combat.AttackCooldownTicks | **15** | **15** | Positive trial hypothesis, same in both |
+| combat.engagementBoundary | 0.6u visual reference | Same | Logical swept AABB half-extents config determines actual contact |
+| cannon.rawRatePerSecond | 3 | 3 | Initial trial hypothesis, editable |
+| boxHP (×2/×3/×5) | 5/10/25 | 5/10/25 | Owner-approved INITIAL, tunable later |
+| boostTime (×2/×3/×5) | 12/10/6s | 12/10/6s | Owner-approved INITIAL, no shot quotas |
+| Wave/input/geometry/boss/seed and graphics tier | identical | identical | **Mandatory matched experiment** |
 
-**Serial 1-v-1 examples under the proposed simultaneous-exchange model** (each combatant deals exactly1 per0.5s round, and participants exchange even if dying in that round):
+**One-vs-one serial examples (no assisting bots; both exchange1 damage per allowed strike):**
 
-| Duel / sequence | MiniBot HP2 | MiniBot HP3 | Meaning / caveat |
+| Duel | HP2 MiniBot | HP3 MiniBot | Why it matters |
 |---|---|---|---|
-| One Scout (enemy HP1) | MiniBot survives at HP1 | Survives at HP2 | No one-hit mutual disappearance |
-| Two Scouts **in succession** | Dies on second while defeating it | Survives second at HP1 | Surviving robots can fight again |
-| One Runner (HP2) | Kills Runner, dies in second exchange | Kills Runner, survives at HP1 | Remaining army differs |
-| One Armored (HP3) | Dies after dealing2; enemy remains HP1 | Kills Armored in third exchange, dies | HP3 can save a reinforcing robot |
-| One Boss (HP18) alone | At most2 enemy damage before dying | At most3 | **Pair-only trial:** other allies cannot simultaneously focus the occupied boss; group mechanics may be reconsidered after evidence |
+| Scout HP1 | survives atHP1 | survives atHP2 | MiniBot is not consumed by enemy contact |
+| Two Scouts consecutively | defeats second but dies | defeats second, survives atHP1 | Subsequent battles differ |
+| Runner HP2 | defeats Runner and dies | defeats Runner, survives atHP1 | Different leftover army |
+| Armored HP3 | dies after2 hits, armored leftHP1 | kills armored on third strike and dies | A second MiniBot may be needed in P2 |
+| **Two MiniBots HP2 simultaneously vs RunnerHP2** | both hit1, Runner dies; Runner hits only **one** for1 | if both HP3, both survive with higher HP | **Critical multi-attacker oracle; not two enemy retaliations** |
 
-**Enemy archetype PLAYTEST data (identical P2/P3):**
+**Enemy archetypes (PROPOSED P2/P3 comparison, NOT approved final HP):**
 
-| Enemy | HP | Speed u/s | Behavior | Visual telegraph |
+| Enemy | HP | Speed u/s | Identity | Feedback |
 |---|---:|---:|---|---|
-| Scout | 1 | 2.3 | Basic grouped opener | Bright small drone |
-| Runner | 2 | 2.7 | Fast flank threat | Glowing frame, 2 HP pips |
-| Armored | 3 | 1.8 | Survives multiple hits | Plated shell, 3 HP pips |
-| Bulwark (later) | 5 | 1.4 | Deferred tougher unit | Large shield silhouette |
-| Siege Behemoth boss | 18 | 1.1 | Group-spawn boss, 1 breach HP proposed | Segmented HP meter and original silhouette |
+| Scout | 1 | 2.3 | Fast-readable basic group | Small contrasting drone |
+| Runner | 2 | 2.7 | Two-hit quick flank | Two obvious health pips |
+| Armored | 3 | 1.8 | Multiple allied hits required | Shell/three damage pips |
+| Bulwark (later) | 5 | 1.4 | Deferred tankier threat | Larger silhouette |
+| Siege Behemoth Boss (later) | 18 | 1.1 | Later group boss with escorts, NOT P2 | Segmented health bar |
 
-**Matched-test evidence needed:** baseHP after W1/W3/W5, same-tick exchange ordering, time in engagements, surviving MiniBots, armor/boss time-to-kill, fortress damage and actual victory rate, peak live units, visibility of HP changes. **Do not select either preset based on arithmetic alone.** If P3 trivializes defense or causes device pressure, tune after evidence; P2 may be too lethal when several groups simultaneously move toward the base before engagement can finish.
+**Metrics required before Owner chooses P2/P3:** surviving HP distribution, repeated hits per actor, number of simultaneous allied attackers against one enemy, enemy retaliation count per cooldown, actual W1/L3 interception, base/fortress result, burst unit lifetimes, replay consistency, performance and clarity of damage feedback. A group can defeat an enemy faster than a one-vs-one duel; old MiniBot count−enemyHP arithmetic remains invalid. **No real simulations run.**
 ## 8. Simultaneous grouped waves and one complete 60-second sample
 
 **Boundary:** a **PROPOSED** standalone 60s pacing sandbox, **NOT** a change to GDD v1.1 L3 or DEV-002.2. For exploratory feasibility, use hypothetical fortress **100 HP**, friendly base3HP. Old L3 fortress270HP and other baseline numbers are unchanged. Enemies spawn **as simultaneous groups on exactly one authored tick each**, not drip-fed one at a time; all start on Z=17.6 with authored side offsets to avoid overlaps. Geometry and actual collision radii need Architect review.
@@ -265,7 +265,7 @@ These are **emitted-unit upper budgets**, not a count of surviving robots or exp
 | World geometry | Scalar same-lane intersections | Real 2D box vs enemy segments/hit radii or precisely validated alternate; maintain immutable shot destination |
 | Performance | Render pool capped separately from simulation | Preserve logical damage on visual culling; concurrency with 6s ×5 bursts and surviving MiniBots must be profiled |
 
-**Equal-TOI Designer/Architect #23 TRIAL ALIGNMENT (not Owner-final):** sort chronological exact rational swept TOI first. If a box-bound MiniBot encounters an enemy at the *same* TOI as its box, **COMBAT_CONTACT first**; the MiniBot becomes engaged and **does not deal box damage at that instant, even if it survives the exchange**. It later resumes its immutable box route only on the next tick after surviving its pair engagement. An already-dead bot cannot earn a box hit. At equal-time several robots meeting one enemy, select only **one eligible 1:1 pair** by (EnemyId ASC,MiniBotId ASC), invalidating the other engagement candidates. Legacy CONTACT→GATE precedence from #14 is a separate test rule. Boost award within (k,τ) schedules activation only at tick k+1; expire/promote on exclusive end tick before spawning a new ATTACK shot. Terminal result after physical tick: base death beats fortress victory; prevent any post-terminal award. Full sign-off remains Architect exact HEAD + Owner gate.
+**Equal-TOI Designer/Architect #23 HEAD 575f TRIAL ALIGNMENT (not Owner-final):** sort chronological exact rational swept TOI first. At one exact time (k,τ), assign **all eligible MiniBots to enemies** (many allies may share one enemy, each MiniBot only one target), pre-snapshot actor HP and compute **simultaneous batch damage**. Every eligible MiniBot hits once; each eligible enemy retaliates **once against one nearest/lowest-ID MiniBot** if its cooldown permits. For a box-bound MiniBot whose EnemyContact and BoxHit have the **exact same TOI**, process enemy combat first, **then allow box damage at that same TOI if it remains alive, its box reservation is valid and BoxHP>0**; consume it on successful box damage. A dead bot cannot hit a box; time order outranks kind priority. Legacy CONTACT→GATE precedence #14 is separate. Absolute rational strike time + positive cooldown determines next eligible strike; box award in tick k begins boost tick k+1. End-exclusive timer expiry/pending promotion precedes due shot. Terminal physical resolution precedes outcome (base death outranks fortress win), no later post-terminal mutation. Final Architect exact-head confirmation still required.
 
 ### Editable versioned balance data (DESIGN CONTRACT, NOT C#)
 
@@ -295,13 +295,13 @@ Owner wants to change balance after actually playing. **Do not hardcode combat H
 | GD12-Q02 | W2 6 mixed enemies spawned same tick | All GroupMember IDs spawn one tick; none dripped one-by-one; no overlap exploits |
 | GD12-Q03 | W3 7 / W4 8 / boss group9 | Monotonic authored group counts4→6→7→8→9, visible spawn with readable silhouettes |
 | GD12-Q04 | 1 MiniBot vs Scout, Runner, Armored in P2/P3 | HP decrements each exchange; survival matches §7 serial duel examples |
-| GD12-Q05 | 2+ allies meet one Armored at same TOI | Only one 1:1 engagement chosen by EnemyId/MiniBotId, other candidates invalidated/recomputed; no duplicated strike |
+| GD12-Q05 | 2+ allies meet one Armored at same TOI | Both eligible allies contribute once in same pre-HP batch; enemy retaliates at most once to one stable chosen MiniBot; no duplicate strike |
 | GD12-Q06 | MiniBot falls to0HP same instant enemy falls to0 | Simultaneous eligible attacks apply; no one-sided sort advantage |
 | GD12-Q07 | MiniBot survives contact, disengages and hits a second enemy | Combat HP persists; cooldown prevents repeated hits every render frame |
 | GD12-Q08 | MiniBot HP2/HP3 successfully hits a box | Regardless remaining combat HP, box takes1 damage and MiniBot is consumed |
 | GD12-Q09 | Reserved box-bound MiniBot killed by enemy before arrival | Reservation released, no box HP lost, shot not rerouted, no reward |
 | GD12-Q10 | 2+ shots reach HP1 box same tick | Exactly one BoxBroken/RewardClaimed; no negative box HP or duplicate multiplier |
-| GD12-Q11 | Exact enemy-vs-box TOI tie for same box-bound MiniBot | Enemy engages first; box HP unchanged that instant even if bot survives; resume original box route only after engagement |
+| GD12-Q11 | Exact enemy-vs-box TOI tie for same box-bound MiniBot | Enemy batch applies first; if MiniBot survives with valid reservation and live BoxHP, it deals1 box damage and is consumed **that same TOI**; if dead, no box damage |
 | GD12-Q12 | ×2 box5HP, ATTACK uninterrupted12s | ×2 for timer only; approximately36 boosted raw shots at3/s; **no charge expiration** |
 | GD12-Q13 | ×3 box10HP, ATTACK uninterrupted10s | Approximately30 boosted raw shots/90 MiniBots; expiry on exact signed tick |
 | GD12-Q14 | ×5 box25HP, ATTACK uninterrupted6s | Approximately18 boosted raw shots/90 MiniBots; logical count, CPU/GC measured |
@@ -340,7 +340,7 @@ Owner approvals are initial design constants and directional rules, **not** runt
 | O12-09 | Boss rules | **APPROVED DIRECTION:** distinct boss with escorts and warning; numeric **OPEN** | Recommend bossHP18 at1.1u/s, 1 base breachHP; do not hardcode |
 | O12-10 | L1–L3 authored progression | **OPEN:** propose L1 ×2 boxes, L2 ×2/×3, L3 ×3/×5 and grouped armor | Existing level balance/old 270HP unchanged pending approval |
 | O12-11 | First implementation slice | **OPEN:** only docs/architecture/test plan approved now | Architect resolves chronology/QA2-01 migration; Owner separately authorizes DEV code |
-| O12-12 | Contact tie & replay | **TRIAL DESIGN SIGNOFF (PROVISIONAL):** first-hit simultaneous pair exchange, enemy before box on equal TOI; stable IDs | Architect #23 exact-HEAD reconciliation and Owner feedback needed; no old gate QA2-01 migration implied |
+| O12-12 | Contact tie & replay | **TRIAL DESIGN SIGNOFF (PROVISIONAL):** simultaneous multi-attacker HP batch; one enemy retaliation per cooldown; enemy before box on equal TOI, surviving box bot may hit box same TOI | Architect #23 **new** HEAD 575f exact-HEAD confirmation and Owner feedback pending; legacy QA2-01 remains separate |
 | O12-13 | Shield/weapon/fire-rate | **OPEN:** future candidate rewards, not first playable default | Distinct slot semantics, stacking, target and VFX contracts |
 | O12-14 | Alerts | **APPROVED DIRECTION:** 3s warning, WAVE n/N, 1–1.5s callout, boss/base warning | PROPOSED base danger ETA2s, clear hysteresis2.5s and 1.25s banner |
 | O12-15 | Performance target | **OPEN:** no device class or FPS certified | Benchmark 15 logical MiniBots/s ×5 burst + surviving combats on representative devices |
@@ -349,7 +349,7 @@ Owner approvals are initial design constants and directional rules, **not** runt
 | O12-18 | Combat engagement & damage | **OPEN:** PROPOSE simultaneous first exchange, repeated15-tick cooldown, paused pairs | Evaluate whether boss gets overwhelmed; tune target aggro and movement |
 | O12-19 | Editable balance storage | **APPROVED REQUIREMENT:** versioned, editable test data, no locked HP choice | Architect chooses config schema/validation, preset provenance; no in-game balance editor requested |
 
-**Next Owner review priority:** (1) Approve/revise the **provisional pair-only** combat model for a bounded P2; HP2 and HP3 remain test presets; (2) review terminal-hit promises, 2D swept rectangles, next-tick timer activation and locked-shot suppression from Architect #23; (3) authorize P2 **only** after exact-HEAD Architect sign-off and P1 checks under GITHUB-006. Legacy QA2-01 evidence must be preserved. No GDD merge.
+**Next Owner review priority:** (1) Review the **provisional multi-attacker batch** combat model with enemy one-target retaliation and rational cooldown; HP2/HP3 remain test presets; (2) review surviving same-TOI box-hit, terminal promises, 2D swept rectangles and next-tick buff activation from Architect #23 HEAD 575f; (3) P2 may start **only** after ARCH exact-HEAD sign-off and P1 checks under GITHUB-006. Legacy QA2-01 remains. No GDD merge.
 ## 13. Change log, role dependencies, risks and Owner-gated next steps
 
 ### GD-006 original draft → GITHUB-005 revised draft
@@ -370,7 +370,7 @@ Owner approvals are initial design constants and directional rules, **not** runt
 | Responsible role | Needed from this GDD before work | Scope/hold |
 |---|---|---|
 | 01 Game Director / Owner | Review §12 decisions, sign off design and separately authorize any implementation or merge | No implicit approval from GITHUB-005 |
-| 02 Architect [#2](https://github.com/Gogenco/swarmforge-studio/issues/2) | Verify this GDD's new exact HEAD against ARCH #23; formalize pair-only 30Hz contract, terminal-hit promises, swept AABB, same-time enemy-before-box tie, next-tick boosts and QA2-01 separation | Must post ARCH_V12_EXACT_HEAD_ALIGNED before Developer P2 |
+| 02 Architect [#2](https://github.com/Gogenco/swarmforge-studio/issues/2) | Verify new GDD HEAD against ARCH #23 **HEAD 575f...**; confirm many-allies-one-enemy batch, rational cooldown, survivor box-hit same TOI, terminal promises, AABB, next-tick boosts and QA2-01 separation | Must post ARCH_V12_EXACT_HEAD_ALIGNED before Developer P2 |
 | 04 Developer [#4](https://github.com/Gogenco/swarmforge-studio/issues/4) | Narrow staged first playable prototype implementation **plan** with editable preset configs, no code until Owner+Architect sign-off | Do not alter merged DEV-002.2 or start VS-02 |
 | 09 QA [#9](https://github.com/Gogenco/swarmforge-studio/issues/9) | Prepare §11 matched P2/P3 scripts plus original six-drone defense and replay/hash cases | No assumed or fabricated PASS |
 | 08 Performance [#8](https://github.com/Gogenco/swarmforge-studio/issues/8) | Rebudget 15 logical bots/s ×5 six-second burst, survivors extending lifetime, 9-enemy boss group, low-end device profiler scenarios | Render cap not logical count |
@@ -382,7 +382,7 @@ Owner approvals are initial design constants and directional rules, **not** runt
 
 1. **R12-01 / CRITICAL — QA2-01 unresolved.** Old fixed-gate chronology and new box/engagement chronology can diverge. Preserve evidence, migration tests and Architect contract before Developer changes.
 2. **R12-02 / HIGH — HP3 survivor snowball.** One MiniBot can defeat multiple weak enemies and still hit the fortress; P3 might trivialize group defenses. Compare matched P2/P3 before choosing, tune damage/cooldown separately.
-3. **R12-03 / HIGH — grouped-wave congestion and pair locking.** Multiple enemies in one spawn can occupy many simultaneous 1:1 engagements or run past unengaged defenders. Test candidate revalidation, path stoppage and available target selection; there is NO multi-attacker same-enemy focus fire in Stage P2.
+3. **R12-03 / HIGH — many-allies-vs-one-enemy snowball.** If each allied MiniBot strikes once while each enemy counterstrikes once, an armored enemy or boss may die immediately against a large group. Test deterministic simultaneous batch, cooldown, HP2/HP3 and surviving count. This is a PROTOTYPE tuning risk, not a claim of invincibility; first P2 has only four Scout enemies.
 4. **R12-04 / HIGH — ×5 traps early defense.** 25 raw box hits and9.49s acquisition delay leave little before earliest W1 breach; high peak burst does not mean global best ROI. No guaranteed victory until playtest.
 5. **R12-05 / HIGH — original L3 math no longer valid.** Prior 270HP versus sample100HP and new HP2/3 repeat hits cannot be reconciled by old unit subtraction. Retune only after Owner approval.
 6. **R12-06 / HIGH — logical entity concurrency.** Active ×5 generates90 units/6s at3 raw/s; survivors linger, broadphase/contact/GC can exceed old 120 visible cap assumptions. Device profile required.
@@ -405,49 +405,51 @@ Owner approvals are initial design constants and directional rules, **not** runt
 **Historical GITHUB-005 milestone:** `GDD_V12_OWNER_DECISIONS_INTEGRATED`. **Superseded for current task by §14 GITHUB-006 provisional trial-contract sign-off.** Draft PR #19 remains unmerged; no Designer Unity changes, no VS-02 and no claim of final balanced or playable build.
 
 
-## 14. GITHUB-006 — STAGE P1/P2 DESIGNER ↔ ARCHITECT TRIAL CONTRACT (2026-11-14)
+## 14. GITHUB-006 — FINAL DESIGNER TRIAL COUNTERSIGN TO ARCH #23 HEAD 575f (2026-11-14)
 
-**Governing directive:** [Owner Issue #18 / GITHUB-006](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880563570). This section is a **DESIGNER SIGN-OFF ON ONE PROVISIONAL P2 TRIAL CONTRACT**, reconciled conceptually with [Architect Draft #23](https://github.com/Gogenco/swarmforge-studio/pull/23) at **HEAD 33d45659ec072523b6a709677fe827c9f9ab606e**, not a claim that Architect has yet checked this later GDD exact HEAD. **Architect must independently post ARCH_V12_EXACT_HEAD_ALIGNED or BLOCKED.** Owner-approved gameplay principles are distinguished below from experimental algorithm choices. No GDD or architecture merge.
+**Governing directive:** [Owner Issue #18 GITHUB-006](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880563570). **Architect latest reconciliation:** [Draft #23 HEAD 575f7ecd8fa0cecee7b8e3764890b343421ff57a](https://github.com/Gogenco/swarmforge-studio/commit/575f7ecd8fa0cecee7b8e3764890b343421ff57a), which explicitly supports **multiple MiniBots attacking one enemy simultaneously** and **surviving same-TOI box hits**. This section supersedes an intermediate Designer-only 1:1 pair proposal from an earlier GITHUB-006 commit: **that proposal must NOT be used for Stage P2**.
 
-### 14.1 No-critical-risk assessment and Stage boundaries
+**Current DESIGNER COUNTERSIGN:** accept ARCH #23's **multi-attacker pre-HP damage batch** and same-TOI survivor box hit as the **single provisional P2 trial ruleset**. This is a test algorithm choice, **not final HP/damage/geometry/balance approval**. Once this GDD update receives a new exact GitHub HEAD, Architect must reread it and explicitly post **ARCH_V12_EXACT_HEAD_ALIGNED** with BOTH latest exact SHAs or precise BLOCKED differences. No one may treat this unilateral Designer countersign as already completed dual-role sign-off.
 
-- **Stage P1: NOW AUTHORIZED FOR GAME DEVELOPER ONLY** to implement opt-in, immutable, versioned and validated balance snapshots; HP2/HP3 test presets, replay/config compatibility tests and legacy isolation on a separate Draft PR. It is not an authorization for the Game Designer to edit C#.
-- **Stage P2: HARD-GATED.** Developer may start the separate FIRST PLAYABLE trial Draft PR only after (1) Architect publishes exact-HEAD alignment, (2) this Designer/Architect trial contract is confirmed identical, **and** (3) P1 tests/checks pass. If any gate fails, no P2 code.
-- **P2 maximum gameplay scope:** one temporary 60s opt-in arena; one automatic one-thumb cannon; one **×2 box with HP5** consuming one MiniBot on each successful hit; ×2 multiplier for **12s** (360 ticks); MiniBots survive enemy combat using P2 or P3 editable HP; **one simultaneously spawning enemy group**; friendly base/enemy fortress victory/defeat, restart and real replay/Unity tests. That is **not** L1–L3 migration, full Forge, ×3/×5, boss, five waves, art-heavy UI/audio or VS-02.
-- **Future P3 (NOT AUTHORIZED):** full ×3/×5, queue overflow in a live 3-box encounter, multi-wave progression, boss, Forge interactions and full production balancing. Their *rules* may be specified/tested in core math now, not implemented as gameplay P2 without new Owner decision.
-- **Critical risk verdict:** no unmitigated critical obstacle to isolated **P1 config/replay** preparation. **P2 remains gated** on exact-head alignment and tests, particularly 1:1 combat/box same-time, reward promises and replay correctness; STOP if any causes damage loops, dropped rewards or incompatible IDs/hashes.
+### 14.1 Staged authorization and hard gates
 
-### 14.2 Single provisional deterministic combat/impact contract — DESIGNER ACCEPTANCE
+- **Stage P1 — already Owner authorized for GAME DEVELOPER only:** on a separate isolated Draft PR, implement versioned/editable/validated balance schemas, immutable per-match config/preset snapshots, HP2/HP3 matched seeds, replay/hash opt-in seam and legacy regression isolation. Do NOT modify stable main. Designer contributes docs and test rules, no C#.
+- **Stage P2 — conditional:** Developer may begin a separate playable trial Draft PR **only after** Architect posts exact-head alignment to this **new** GDD HEAD and all required P1 config/replay checks pass. If cooldown, rewards, collision chronology or hashes are contradictory/unstable → **STOP P2 / BLOCKED**, report exact violation.
+- **P2 scope MAXIMUM:** one temporary opt-in 60s arena, auto-fire one-thumb cannon, one **×2/HP5** breakable side box, consumed MiniBot per successful box hit, time-only ×2 boost12s, configurable friendly HP2/HP3 combat, **one synchronous enemy spawn group**, friendly base/enemy fortress win/loss, restart and real Unity/QA evidence.
+- **NOT P2:** ×3, ×5, boss, full five waves, Forge/Mech/Titan implementation, large Art/UI/Audio asset rollout, migration of old L3=270HP, VS-02, merge or release claims. Those remain future design/Owner decisions.
 
-| Contract field | Designer-approved **trial hypothesis** aligned with ARCH #23 | Required P2 oracle |
+### 14.2 One exact provisional deterministic P2 combat/box/boost contract — DESIGNER APPROVES FOR TEST ONLY
+
+| Contract | Single chosen P2 rule, explicitly aligned with ARCH #23 HEAD 575f | Mandatory deterministic QA oracle |
 |---|---|---|
-| Health presets | P2 MiniBotMaxHP=2 / P3=3; **neither final**; equal damage1, 30Hz, same enemy/group/commands | Both snapshots immutable, distinct config hashes, no live Inspector retroactive mutation |
-| Combat pairing | **One MiniBot ↔ one enemy** active engagement per actor; pair stationary; occupied actors unavailable to third attacker | Two allies encountering one enemy same TOI start only one stable pair |
-| First strike | At actual chronological swept contact time **(k,τ)**, both eligible combatants exchange simultaneous integer damage from pre-strike alive snapshot | Lethal mutual attack applies both damages; no ordering advantage |
-| Positive repeat cooldown | Configurable positive integer (trial15); first repeat **tick k+1+15** after first-hit tick k; subsequent proposed exact ticks **r+15** | No render-FPS damage, no same-tick repeats; Architect must confirm recurring phase |
-| Survival and continuation | At HP>0 after a partner dies, survivor resumes original immutable route **the next tick**; 0HP unit never acts again | HP2/HP3 serial Scout/Runner/Armored cases and another later target |
-| 2D contacts | Proposed fixed-point **swept 2D axis-aligned rectangles**, exact rational time-of-impact, stable X/Z waypoints; logical hitbox shape editable in config | Side box hit only by box-targeted units; no invisible same-lane/cross-lane contact |
-| Enemy vs box equal-time | **COMBAT_CONTACT precedes BOX_HIT** on exact TOI tie: box-bound MiniBot pairs with enemy, **no box damage at that instant even if bot survives** | Box HP invariant, no dual contact consumption; resume later on original route if still alive |
-| Box impact | One *successful* box hit costs exactly one living MiniBot, always deals1 HP regardless of its HP2/HP3; on-route death releases reservation | Five successful hits to destroy boxHP5; no free hits, no duplicate grant |
-| Queue safety | Reserve terminal award entitlement before final covering shot: **active+pending+promised≤2**; while full, all other multiplier boxes target-locked; suppress raw shot without expenditure or reroute | No third reward loss or phantom bot; promise freed if terminal shot dies |
-| Activation/expiry | Box award during tick k activates **start k+1** if slot free; active duration exclusive **[a,a+360)** for ×2; expiry and queued promotion precede shot creation on expiry tick | Shot before activation remains ×1; boundary-shot uses correct boost, no overlap/gap |
-| Raw shot and enemy IDs | Original raw unit ID before boost children ordered clone1…N−1; enemy group IDs ordered Wave→Group→Lane→Formation; spawned units first move next tick | Same ID/EventHash/StateHash on deterministic replay at different render FPS |
-| Wave group | **All members born on same spawn tick**, stable group/formation ordering; UI warning not a spawn scheduler | P2 one group of 4 Scouts in same tick, not individual drips |
-| Terminal | Process physical contacts (including earlier intra-tick legal rewards) then compare result: friendly baseHP≤0 ⇒ LOSS, else fortressHP≤0 ⇒ WIN, else 60s expiry ⇒ LOSS; freeze all later events | Base+fortress die same logical tick ⇒ LOSS; no postterminal grant/mutation; restart clean |
-| Legacy | v1.2 opt-in ruleset separate from unchanged DEV-002.2 and old ARCH-003 QA2-01 fixture | No old C# assets/config deleted; old deterministic regression still runs |
+| MiniBot durability | Two **unapproved** editable presets: P2 HP2 and P3 HP3; all other wave/box/damage/seed/graphic controls identical | Replay both; compare survival, base outcome and TTK, never lock final HP |
+| Engagement ownership | Each MiniBot has at most **one** engaged EnemyId; one Enemy may have **multiple** allied MiniBots attacking together | Two friendly MiniBots touching one Enemy can both join; no exclusive-pair rejection |
+| Same-time first strike | At exact rational contact time (k,τ), snapshot **all eligible** participants. Every eligible allied MiniBot strikes chosen Enemy **once**. Enemy strikes **one** chosen allied MiniBot once if eligible; target by nearest squared distance and lowest ID | Two allies HP2/damage1 vs RunnerHP2/damage1: Runner dies from2, selected ally HP1, other HP2, all survive |
+| Damage batching | Aggregate each eligible strike from the pre-batch alive state; clamp all HP simultaneously; if struck unit dies, it still delivers its own pre-eligible strike, never later | Same-time lethal strike reciprocity independent of iteration order |
+| Positive repeat cooldown | Each *actor* has one editable C≥1 ticks (trial C=15). Following any strike at absolute rational tick t=k+τ, its NextEligibleStrikeTime is **t+C**, with exact rational comparison; new allied joiner can hit if ready but **does not reset enemy cooldown** | No actor strikes twice before t+C, no damage every render frame; enemy retaliates at most once per own cooldown |
+| Routes/survival | Engaged actors pause route motion; on Enemy death all living allied MiniBots resume immutable original route **next tick**; if all allies die, living Enemy resumes base path next tick; no same-tick new target loop | Surviving HP1 robot can later fight another Enemy or reach fortress |
+| 2D hitboxes | Proposed configured **fixed-point swept axis-aligned rectangles** with exact rational TOI; authored immutable TargetKind/Id and waypoints | Box only hit by box-bound shot; crossing flank lanes only if actual 2D collision |
+| Enemy vs Box SAME TOI | Process enemy attack batch **first**. If box-bound MiniBot is STILL ALIVE, reservation is valid, and BoxHP>0, it then deals **one** box damage at the **same rational time**, and is consumed. If bot dies from enemy batch: no box damage | HP2 MiniBot vs Scout1 at shared TOI: MiniBot loses1HP, Scout dies, box loses1HP, MiniBot consumed; HP1 MiniBot dies and cannot damage box |
+| Box reservations | Each new box shot reserves ≤1 damage. Terminal covering shot must hold reward entitlement **before** dispatch: **ActiveCount + PendingCount + TerminalAwardPromises ≤2** | No third-earned reward with full capacity; terminal shot death releases reservation and promise |
+| Full queue lock | All other multiplier boxes LOCKED before *any* further box shot when active+pending+promises reaches2; suppress shot opportunity with ShotSuppressed, **do not spawn or reroute** MiniBot | No wasted raw bots and no HP reset; unlock when slot becomes free |
+| Once-only reward | Valid final box hit consumes MiniBot and decrements HP to zero; BoxBroken/RewardGranted keyed uniquely (MatchId,BoxId) and claim promise converted atomically | Concurrent hits grant exactly one boost, not negative HP |
+| Buff birth/death | Reward at within-tick k becomes active **start tick k+1** if slot free; owner ×2=360, ×3=300, ×5=180 ticks; timer half-open [StartTick,EndExclusiveTick); expire/activate FIFO pending **before shot** at expiration tick | No retroactive clones, no stack, no gap between queued; shot at end-exclusive tick uses next boost |
+| ID and spawn order | Raw original UnitId allocated before children clone1…N−1; synchronous enemies sorted WaveId→GroupId→LaneId→FormationSlot; born units first move next tick | Same config+commands at30/60 render FPS produces same versioned hash |
+| Terminal | Resolve in-tick physical impacts (including prior legal reward events), then base death ⇒ LOSS before fortress victory, timeout ⇒ LOSS; no actions after terminal; Restart resets IDs/hashes | Base+fortress both reach0 in one logical tick ⇒ LOSS; no future queued award |
+| Legacy QA2-01 | Preserve DEV-002.2 gate code/fixtures, ARCH-003 Draft #14 and its distinct old chronology | No false claim original QA2-01 is fixed by v1.2; replay hashes versioned |
 
-**Exact repeat tick note:** ARCH #23 suggests first repeat no earlier than k+1+CooldownTicks after first collision; **P2 proposes that as the exact first repeat**, then repeating every CooldownTicks thereafter. Architect must confirm this recurrence, fractional first contact treatment and the original **spawn raw shot before group wave, and new units first move next tick** deterministic phases; if different, publish the exact difference before P2.
+**Contact cadence example:** if the first eligible combat batch occurs at (tick100,τ=1/4) and C=15, next earliest strike for an actor that just attacked is at **(tick115,τ=1/4)**; an ally newly joining at (tick102,τ=1/3) may strike then if it has not previously attacked, but this does **not** grant the enemy an extra strike before its tick115+1/4 eligibility. An actor may strike at most once per exact-time bucket. This avoids off-by-one confusion from the now-abandoned pair-only tick k+1+C recommendation.
 
-**P2 example authored data (ALL TEST CANDIDATES, NOT NEW OWNER-APPROVED LEVEL BALANCE):** 60s/1800 ticks; friendly base3HP; fortress trial90HP **editable**; raw cannon3/s; box LEFT ×2 HP5 at sample (-2.5,5.0) visual location; ×2 for360 ticks; one wave warning at t3/tick90 and **four Scouts in one group at t6/tick180**, two on each side; Scout HP1/speed2.3u/s/damage1; P2/P3 only differs in MiniBot maxHP. Real hitbox half-extents, formation slots, 2D waypoints, box target snapping, cooldown and breach check belong to Architect's versioned config schema and must be validated by reproducible P1/P2 QA. The trial fortress90HP is **not** old L3=270HP and does not modify the stable VS-01 scene.
+**P2 authoring candidates (NOT approved level balance, editable versioned configs):** match60s=1800 ticks, baseHP3, *trial* fortressHP90 (separate opt-in arena, does not touch L3=270HP), raw cannon3/s, left ×2HP5 box at sample visual (-2.5,5), ×2duration360ticks, WAVE1/1 warning at tick90/t3 and **one** group of four Scouts at tick180/t6 (2 LEFT,2 RIGHT). ScoutHP1, damage1, speed2.3u/s are unapproved trial hypotheses. HP2/P3 differ only friendly maxHP; exact AABB dimensions, formation slots, deterministic aim, movement and combat need Architect test contract and measured QA.
 
-**P2 test gate (all UNRUN):** exact-P2/P3 pair exchange, repeated15-tick cooldown, surviving bot reengagement, box consumes even HP3 MiniBot, successful ×2 one-time award, active next-tick/time exclusive, same-time enemy/box priority, group count4 spawned atomically, base+fortress precedence, restart, 30/60 FPS replay equivalence, config-hash isolation, original QA2-01 regression preservation and one-finger mobile portrait input. Log any missing Unity/device verification honestly.
+**P2 acceptance tests (NOT RUN):** same-TOI 2 MiniBots vs 1 Runner enemy retaliation once; HP2/HP3 survival; repeated attack no earlier than rational t+C; enemy killed mid-batch still counterstrikes if eligible; survivor next-tick movement; box-hit consumes regardless HP; equal-TOI surviving box hit and dead bot no box hit; terminal box promise no overflow; ×2 active following tick for360, cooldown/expiry frame-rate-independent; four enemies born same WaveId/tick; loss precedence and restart; deterministic hash under same config and commands with30/60render fps; legacy QA2-01 fixture unaffected; mobile portrait one-thumb input.
 
-### 14.3 Outstanding Owner/Architect decisions — not blockers for P1 config work
+### 14.3 Open questions and coordination protocol
 
-1. **Trial mechanic sign-off:** Architect must check this exact GDD commit against Architect Draft #23 and confirm/revise pair-only engagement, first/repeat attack timing, same-time enemy-before-box rule, terminal entitlement promises, locked-shot suppression and timer boundary. This is the **mandatory P2 gate**.
-2. **HP2/HP3 remain open by Owner decision.** Neither is a final winner; Developer must expose editable balanced presets and QA must compare them.
-3. **Full 2D geometry/aim:** proposed swept rectangles need bounds/waypoints that allow P2 one group and box interception without hidden cross-lane damage; Inspector data and numerical tests, not a diagram assertion.
-4. **Later gameplay remains open:** optimal ×3/×5 dynamics, boss and five-group 60s sample, Forge, shield/weapon/firerate queue interaction, full L1–L3 balance, old270HP authored level retune and rendering budgets. None is authorized in P2.
-5. **Any inconsistency with ARCH #23 or game loop:** stop before P2, publish exact contradictory clauses and seek Owner clarification. No silent guess or code workaround.
+1. **Architect exact HEAD ALIGNMENT** still required after this Designer document commit. If Architect's new head differs further, compare again; only then publish ARCH_V12_EXACT_HEAD_ALIGNED with both current SHAs. Until that, P2 remains BLOCKED.
+2. **HP2 vs HP3 deliberately UNDECIDED.** Choose only after matched real P2 tests, not from these duel examples.
+3. **Combat algorithms provisional.** Many-allies/one-enemy may overbuff swarms; real P2 QA may lead to an Owner-approved alternative. No guarantee of fun/balance/performance from mathematical batches.
+4. **Wider game unapproved for P2.** Original 5-wave/34-enemy, ×3/×5, boss and Forge remain DESIGN STUDIES only. Next Owner decision after first playable evidence.
+5. **Critical STOP:** if any possibility of duplicate strike, dropped terminal reward, inconsistent actor cooldown, unreplayable TOI/IDs, or old code regression occurs, halt P2 and publish exact BLOCKED evidence. Never silently change rules in Unity to bypass uncertainty.
 
-**Designer trial-contract status:** `GDD_V12_GITHUB006_DESIGNER_TRIAL_SIGNOFF` — provisional algorithm accepted for a bounded trial, **ARCH_V12_EXACT_HEAD_ALIGNED pending**; P1 authorized separately for Developer, P2 conditional, no code/merge/VS-02 by Game Designer.
+**CURRENT DESIGNER STATUS:** `GDD_V12_GITHUB006_DESIGNER_TRIAL_SIGNOFF_ARCH575F`. This is a clear **Designer countersign to ARCH #23 HEAD 575f trial rules**, but final two-way exact-head confirmation must be published by Architect **after** this GDD's own new SHA. P1 may continue separately; P2 remains conditionally blocked. No merge, no Unity code edits by Designer, no VS-02.
