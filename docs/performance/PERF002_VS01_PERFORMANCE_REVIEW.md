@@ -1,11 +1,11 @@
 # PERF-002 — VS-01 Performance Review
 
-**Task:** [#8 — PERF-002](https://github.com/Gogenco/swarmforge-studio/issues/8)  
-**Owner:** 08 — Mobile Performance / Optimization Engineer  
-**Status:** `READY_FOR_REVIEW` — static review and reproducible test plan; **device performance NOT VERIFIED**  
-**Review baseline:** `main` merge commit `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9` (DEV-002.2 / PR [#10](https://github.com/Gogenco/swarmforge-studio/pull/10))  
-**Engine:** Unity `6000.3.28f1`, URP `17.3.0`, C#, portrait Android/iOS  
-**Scope:** VS-01 only. **No game-code, balance, rendering-setting, or scene modifications in this review.**
+- **Task:** [#8 — PERF-002](https://github.com/Gogenco/swarmforge-studio/issues/8)
+- **Owner:** 08 — Mobile Performance / Optimization Engineer
+- **Status:** `READY_FOR_REVIEW` — static review and reproducible test plan; **device performance NOT VERIFIED**
+- **Review baseline:** `main` merge commit `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9` (DEV-002.2 / PR [#10](https://github.com/Gogenco/swarmforge-studio/pull/10))
+- **Engine:** Unity `6000.3.28f1`, URP `17.3.0`, C#, portrait Android/iOS
+- **Scope:** VS-01 only. **No game-code, balance, rendering-setting, or scene modifications in this review.**
 
 ## 1. Evidence and limits
 
