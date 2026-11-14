@@ -7,7 +7,7 @@
 **Source baseline:** `main` DEV-002.2, merge `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9` / [PR #10](https://github.com/Gogenco/swarmforge-studio/pull/10)  
 **Related, not superseded:** [GD-005 Draft PR #15](https://github.com/Gogenco/swarmforge-studio/pull/15); [ARCH-003 Draft PR #14](https://github.com/Gogenco/swarmforge-studio/pull/14)
 
-> **Authority legend:** **APPROVED INITIAL DESIGN** = specific Owner decisions consolidated in [Issue #18 GITHUB-005](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880330660), still tunable after playtesting. **PROPOSED** = Game Designer recommendation awaiting Owner/Architect sign-off. **PLAYTEST PRESET** = comparable, unapproved numbers. Fixed gates stay in DEV-002.2 code/tests for migration, but are **replaced by breakable side boxes in new v1.2 gameplay**. Friendly MiniBot HP **is intentionally undecided** (test 2 vs 3), and Unity source/config changes, PR merge and VS-02 are forbidden. Older v1.2 draft paragraphs using a per-shot quota or MiniBot combat death on every hit have been replaced.
+> **Authority legend:** **APPROVED INITIAL DESIGN** = specific Owner decisions consolidated in [Issue #18 GITHUB-005](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880330660), still tunable after playtesting. **PROPOSED** = Game Designer recommendation awaiting Owner/Architect sign-off. **PLAYTEST PRESET** = comparable, unapproved numbers. Fixed gates stay in DEV-002.2 code/tests for migration, but are **replaced by breakable side boxes in new v1.2 gameplay**. Friendly MiniBot HP **is intentionally undecided** (test 2 vs 3), and **this Designer PR does not modify Unity**; Developer Stage P1 config/replay work is independently authorized in its own Draft PR; main merge and VS-02 remain forbidden. Older v1.2 draft paragraphs using a per-shot quota or MiniBot combat death on every hit have been replaced.
 
 ## 1. Player fantasy and Owner-locked design pillars
 *Fire a stream of charming, survival-capable robots; choose whether to defend the home base, crack a tempting side upgrade box, assault the fortress or build a Forge machine; enjoy a meaningful timed power spike before stronger grouped enemy waves arrive.*
@@ -34,7 +34,7 @@
 | Routes | Scalar lanes; 2D choke not verified | Side boxes require real target geometry and chronological contacts; routing once at spawn |
 | Forge/Mech/Titan | GDD v1.1 design, not implemented in VS01 smoke | Preserved; multiplier effect on FORGE shot and full-level balance need Owner/Architect sign-off; proposed ATTACK-only |
 | L1–L3 | Existing GDD v1.1 values; VS-01 is only a smoke fixture | **No actual balance change now.** This document offers a separate 60s sandbox and level *intent*, not replacement files |
-| Build gate | QA2-01 open; ARCH-003 Draft #14 unapproved | Document/architecture/test planning only. No Unity edits, no merges, no VS-02 |
+| Build gate | QA2-01 open; ARCH-003 Draft #14 unapproved | This Designer/Architect documentation PR has no Unity edits; Developer Stage P1 config/replay code allowed separately; Stage P2 gated; no merge or VS-02 |
 
 **Design source control:** this update stays on existing [Draft PR #19](https://github.com/Gogenco/swarmforge-studio/pull/19); [GD-005 #15](https://github.com/Gogenco/swarmforge-studio/pull/15), [ARCH-003 #14](https://github.com/Gogenco/swarmforge-studio/pull/14), code and WIP are preserved unchanged.
 ## 3. Core loop, one-finger control and route contracts
