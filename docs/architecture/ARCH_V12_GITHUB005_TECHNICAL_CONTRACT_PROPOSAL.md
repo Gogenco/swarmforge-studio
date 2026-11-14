@@ -4,7 +4,8 @@
 **Role:** 02 — Senior Game Architect / Tech Lead  
 **Date:** 2026-11-14  
 **Owner source:** [#18](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880330660), [architect task #2](https://github.com/Gogenco/swarmforge-studio/issues/2#issuecomment-6880337664)  
-**Design source:** [GDD v1.2 Draft PR #19](https://github.com/Gogenco/swarmforge-studio/pull/19); Designer must reconcile that draft to later Owner decisions.  
+**Exact design source now compared:** [GDD v1.2 Draft PR #19](https://github.com/Gogenco/swarmforge-studio/pull/19) at `2089e646223c9f7ca2de001e00a09337251ccac6` (GITHUB-005 reconciled).  
+**GITHUB-006 source:** [Owner conditional P1/P2 approval](https://github.com/Gogenco/swarmforge-studio/issues/18#issuecomment-6880563570), [architect exact-head task](https://github.com/Gogenco/swarmforge-studio/issues/2#issuecomment-6880587557).  
 **Legacy architecture, preserved:** [ARCH-003 Draft PR #14](https://github.com/Gogenco/swarmforge-studio/pull/14)  
 **Baseline:** merged DEV-002.2 `main` commit `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9`.
 
@@ -27,7 +28,7 @@
 | Shield, weapon, rapid-fire interactions with multiplier queue | **OPEN** | Model as optional future reward types; no implicit shared queue or new scope. |
 | Box/Enemy overlap, repeated-hit behavior, exact tie order, overflow reservation model, 2D hit shape | **ARCHITECT PROPOSAL** | Sign off together with GDD v1.2 before runtime implementation. |
 
-**Obsolete in current PR #19 at HEAD `5bee02c6ee25a307c867cb830391da4daa1c2ce1`:** its shot-charge boosts and one-HP consumed-on-contact MiniBots, enemy-combat arithmetic and any single-enemy spawn assumptions. Do **not** implement those paragraphs. Designer owns the updated same-branch Draft #19; coordinate against its eventual revised exact HEAD.
+**Designer revision verified:** PR #19 HEAD `2089e646...` supersedes original HEAD `5bee02c...`. The revised GDD already removes shot-charge boosts, one-HP consumed-on-contact MiniBots and single-enemy assumptions, with 34 enemies/93 hypothetical enemy HP in its **unapproved** five-wave sandbox. P2 is instead **one** temporary 60-second arena, **one** ×2 box and **one** simultaneously spawning enemy group, per Owner GITHUB-006; never treat the full GDD sample as P2 authorization.
 
 ## 2. Scope and data boundaries (proposed)
 
@@ -42,11 +43,11 @@
 
 | Record | Authoritative fields |
 | --- | --- |
-| `MiniBotState` | `Id`, `BornTick`, `Hp`, `MaxHp`, `Damage`, `RouteId/TargetId`, integer `X/Z`, speed, `Alive`, engagement ID, `NextEligibleStrikeTick`, buff snapshot at birth. |
-| `EnemyState` | `Id`, `WaveId`, `ArchetypeId`, `Hp`, `MaxHp`, `Damage`, route/position, `Alive`, engagement ID, next strike tick. |
+| `MiniBotState` | `Id`, `BornTick`, `Hp`, `MaxHp`, `Damage`, `RouteId/TargetId`, integer `X/Z`, speed, `Alive`, optional engaged EnemyId, exact `NextEligibleStrikeTime`, buff snapshot at birth. |
+| `EnemyState` | `Id`, `WaveId`, `ArchetypeId`, `Hp`, `MaxHp`, `Damage`, route/position, `Alive`, ordered participant IDs, exact `NextEligibleStrikeTime`. |
 | `BoxState` | `BoxId`, reward ID, `Hp`, `MaxHp`, targetable/locked, in-flight reserved bot IDs, `TerminalAwardSlotHeld`, `RewardGranted`, `EntityVersion`. |
 | `BoostQueue` | optional `Active{kind,multiplier,startTick,endExclusiveTick,sourceBoxId}`, optional `Pending{kind,durationTicks,sourceBoxId}`, count of promised terminal box awards. |
-| `EngagementState` | stable pair of attacker IDs, contact location/TOI, pair phase, next strikes, target acquisition priority; no render collider reference. |
+| `EngagementState` | one stable EnemyId with **multiple** participant MiniBotIds permitted, each MiniBot bound to at most one enemy; contact/attack times, sorted target choice and next strikes; no render collider reference. |
 | `WaveDefinition` | stable `WaveId`, integer `StartTick`, warning lead ticks, ordered group elements `(ArchetypeId,LaneId,Count,FormationSlots)`, boss marker. |
 | `EventRecordV12` | `RulesetVersion`, match ID, tick, exact sub-tick time numerator/denominator, kind, actor/target IDs, deterministic event ordinal, value(s). |
 
@@ -62,24 +63,26 @@
 2. At the **start of tick**, expire an active boost when `k == EndExclusiveTick`; activate FIFO pending at this same boundary, setting `StartTick=k`, `EndExclusiveTick=k+DurationTicks`. If an award was earned during previous tick and no active boost exists, its scheduled activation also occurs now. Recalculate visible box lock/eligibility before any new raw shot.
 3. Process scheduled raw-shot opportunity in legacy order **before** grouped enemy spawns to retain a predictable ID hierarchy; a locked/PENDING box suppresses this opportunity with a deterministic `ShotSuppressed` record, **not** a hidden diversion to ATTACK and **not** a consumed MiniBot. ATTACK raw shot born now is multiplied by the active boost (if any); a BOX-targeted or FORGE-bound raw shot is **unmultiplied**. Units born in tick `k` do not move until tick `k+1` (legacy invariant).
 4. Emit nonblocking `WaveWarning` at authored tick; spawn each group with a **single** authoritative `WaveStarted` and a deterministic, sorted batch of `EnemySpawned` (all born at one tick). Sort by `(WaveId, GroupId, LaneId, FormationSlot)`; never rely on input array enumeration. Warnings only announce; they do not delay or spawn enemies themselves.
-5. Snapshot existing movable entities at tick start, generate TOI candidates for eligible 2D contacts (enemy↔bot, box←box-targeted bot, fortress←ATTACK bot, base breach←enemy) and any active engagement strikes. Candidate generation **does not** allocate IDs, HP, rewards or event history. Process by `(exact time, kind priority, StableTargetId, StableActorId, generated ordinal)`; recheck alive, target, engagement and `EntityVersion` on commit. Invalidate/recompute affected candidates when combat locks, deaths or target HP change.
-6. Apply committed collision/strike damage (sections 4–5) and box rewards (section 6) atomically. Emit events only after committing state; no hit from an already-dead entity and no second destruction/award. A bot can perform at most one newly accepted impact at the same exact TOI.
+5. Snapshot existing movable entities at tick start, generate TOI candidates for eligible 2D contacts (enemy↔bot, box←box-targeted bot, fortress←ATTACK bot, base breach←enemy) and all **due** engagement strikes. Candidate generation **does not** allocate IDs, HP, rewards or event history. Process by **exact time buckets** `(tick, rational τ)`. Within each bucket, assign eligible combat targets by deterministic distance²/IDs, snapshot alive/HP/cooldowns, resolve simultaneous eligible combat damage **as a batch**, then process still-eligible box impacts, goals and breaches. Revalidate alive, route and `EntityVersion` on commit; recompute affected candidates after locks/deaths.
+6. Publish the committed batch in a canonical order, never from candidate discovery order. A combatant may make **at most one combat strike per attack-cadence instant**. If a box-targeted bot also reaches the box at **the exact same time as enemy contact**, it may make **one** box hit **after** combat only when it remains alive (explicit reconciliation to Designer #19 §10). That successful box hit consumes it; there is no retroactive later impact.
 7. Resolve fortress/base impact and breach on the authoritative path crossing, then process terminal result once after all in-tick physical effects. Existing priority survives: **base HP≤0 → LOSS**, else fortress HP≤0 → WIN, else time expiration → LOSS. Clamp HP to zero, publish at most one MatchEnded, then freeze future rewards/spawns.
 8. Normalize survivors and all hashed state by stable IDs, verify conservation, construct immutable snapshot/event batch and advance tick. Display/UI subscribers do not feed back damage, locks or waves.
 
-**Same-time tie proposal (requires Owner confirmation):** `COMBAT_CONTACT/ENGAGED_STRIKE → BOX_HIT → FORTRESS_IMPACT → BASE_BREACH`, each then `(TargetId,ActorId)`, with terminal outcome only after same-tick physical events. A box-intended MiniBot colliding with an enemy at precisely the box TOI first engages the enemy; because an engaged bot cannot also hit the box at that instant, it does **not** consume itself as a box hit. If it survives, it can continue only after the engagement ends. Time order always outranks event type. The legacy CONTACT-before-GATE tie **does not** become a box tie by implication.
+**Same-time tie trial proposal (Designer confirmation required):** `COMBAT_CONTACT/ENGAGED_STRIKE [batched] → BOX_HIT [alive survivors only] → FORTRESS_IMPACT → BASE_BREACH`, then stable `(TargetId,ActorId)`; terminal outcome follows all physical events. Thus a BOX-bound MiniBot at the exact enemy-and-box TOI first exchanges combat HP, then—**only if HP>0, box reservation valid and BoxHP>0**—deals **one** box damage and is consumed. If combat killed it, no box hit/reward. This agrees with updated GDD #19 §10 rather than the original Architect one-impact hypothesis, but **must be countersigned by Game Designer**; it is a bounded trial rule, not a blanket right to deal damage to arbitrary overlapping objects. Time order outranks type. Legacy CONTACT-before-GATE does not transfer by implication.
 
 ## 4. Repeated enemy contacts with surviving MiniBots
 
-**OWNER APPROVED principle:** friendly MiniBots persist across some enemy contacts. **ARCHITECT PROPOSAL for playtest:** use a *bounded pair-engagement* model instead of unlimited hits from mere overlap each frame:
+**OWNER APPROVED principle:** friendly MiniBots persist across some enemy contacts. **RECONCILED ARCHITECT TRIAL PROPOSAL against GDD #19 §7** (not final HP/balance):
 
-1. First eligible swept collision at `(k,τ)` pairs currently unengaged MiniBot and Enemy, marks a stable `EngagementId=(minId,maxId)`, stops their onward movement for this tick, and applies one explicit simultaneous exchange: `EnemyHP -= MiniBotDamage` and `MiniBotHP -= EnemyDamage`, clamped to zero. Both damages use **pre-exchange** alive state; a combatant killed by the exchange still delivers its simultaneous hit, but cannot attack in any later event.
-2. If both survive, they remain engaged and stationary. After configurable **strictly positive** `AttackCooldownTicks` (minimum 1), exchange one repeat strike at a deterministic tick boundary (proposed next earliest `k+1+CooldownTicks`), never at render frames or on every overlap evaluation. Cooldown start semantics must be identical for all units and reflected in ConfigHash.
-3. On death of either side, emit one `MiniBotDefeated` or `EnemyDefeated`; surviving counterpart resumes its original precommitted route on the **next** tick, and may fight another enemy. No same-tick instant retarget loop. If neither survives, neither resumes.
-4. At most one engagement per unit, and one initial engagement for an eligible pair at a given TOI. If two enemies and two bots contact simultaneously, iterate `(EnemyId ASC,MiniBotId ASC)`, commit only pairs still eligible; other candidates are invalidated/recomputed. Enemy damage and MiniBot damage configurable per archetype/preset; armor as separate mitigation is **not** assumed approved.
-5. An enemy already engaged cannot breach while frozen; if it disengages near the breach plane, future path crossing must be recalculated chronologically. Prevent units from fighting through unattached side lanes/colliders or acquiring enemies out of reach.
+1. **Many allies, one enemy:** each MiniBot may target **only one** EnemyId while engaged; an enemy may simultaneously have **multiple** MiniBots fighting it. Acquire by swept real 2D contact within configured engagement boundary; among simultaneous eligible targets choose nearest fixed-point squared distance, then ascending EnemyId/MiniBotId. Existing engagement does not block another allied MiniBot from joining.
+2. **Initial batch:** at a common rational time `(k,τ)`, freeze eligible combat participants **after target assignment**. Each eligible MiniBot strikes its chosen enemy **once**; each eligible enemy strikes **one** chosen MiniBot (nearest distance² then lowest ID), *not every participant*. Compute all eligible outgoing integer damage from the **pre-exchange** HP/alive snapshot. Aggregate damage per target, apply simultaneously and clamp HP to zero. An actor killed in that batch still delivers its already-eligible strike, never a future strike.
+3. **Cooldown:** every actor (MiniBot and enemy) has one global positive configurable `AttackCooldownTicks` (provisional P2/P3 **15 ticks=0.5s**) and exact `NextEligibleStrikeTime`. First contact can attack immediately if eligible; after a strike at absolute rational time `k+τ`, that actor is next eligible **at or after `k+τ+CooldownTicks`**, not `k+1+CooldownTicks`. A newly joining bot can strike if eligible, but **does not reset** the enemy's own cooldown or trigger extra enemy retaliation. Zero cooldown or a hit every rendered frame is prohibited.
+4. **Position and exit:** while engaged, participants pause forward route movement. On enemy death, surviving MiniBots (including those with HP1) resume their **original immutable target/route on the next tick**; on Bot death, remove it once and release any box reservation. If all bots die while enemy survives, the enemy resumes its base route next tick. If both die, neither resumes. A bot whose enemy dies at contact time **cannot instantly retarget a different enemy in the same tick**; if its box impact is at that identical time, apply the one-time same-TOI box rule in §3.
+5. **Stable batch semantics:** all same-time new contacts are considered before combat damage; sort all candidates by exact rational time, then squared distance and stable IDs. One MiniBot cannot newly join two enemy engagements at the same instant. One enemy may accept several allies. Group combat is not resolved by greedily killing one pair before another eligible attacker can contribute. No separate armor percentage/reduction is assumed; HP is per archetype and editable.
 
-This combat-lock cadence is explicitly **open for Designer/Owner sign-off**. An alternative moving/overlap persistent fight has materially different geometry and balance and requires a separate deterministic specification. Do **not** implement both implicitly.
+**Worked proposed P2 oracle:** Enemy HP2/damage1 and two simultaneous allied MiniBots HP2/damage1 join at the same TOI. Both bots deal1 to Enemy (total2); Enemy strikes **one** bot chosen by stable distance/ID for1. Enemy dies, chosen bot remains HP1, other remains HP2; both may resume next tick. A simultaneous dying actor still applies its committed attack. No actor strikes twice in one bucket or before its next eligibility time.
+
+**Designer sign-off required:** this multi-attacker batch reconciles the revised GDD's “additional allies may join” and avoids the prior exclusive pair conflict. It does **not** certify HP2/HP3, 15-tick cadence, 0.6u radius, enemy selection policy or balance; they remain test presets/open technical details. A moving/overlap alternative would require a separate signed trial contract.
 
 **Conservation changes:** baseline `ProducedTotal = ActiveMiniBots + FortressHits + EnemyLosses` must become `Produced = Active + BotDeathsInCombat + BoxConsumed + FortressConsumed + OtherExplicitTerminalConsumes` (each unit exactly once); enemy counts similarly `EnemiesSpawned = AliveEnemies + DefeatedEnemies + BreachedEnemies`. Repeat damage does not add units or deaths. Never issue `MiniBotLost` per hit if the robot actually survived; snapshots/hashes must include current HP and engagement/cooldown state.
 
@@ -140,11 +143,11 @@ Suppose multiplier A is active, a final Box B shot is in flight and has reserved
 | --- | --- |
 | Enemy touches a BOX-bound MiniBot at `τ=1/4`; box hit would occur at `τ=3/4` | Enemy combat first; if MiniBot dies, release reservation; **no box damage/reward**. |
 | Box hit at `τ=1/4`; enemy contact would occur at `τ=3/4` | MiniBot consumed by box; enemy candidate stale, no later hit from dead MiniBot. |
-| Enemy and box exact same `τ`, same MiniBot | `CombatContact` first; engaged unit cannot also damage box at that instant, even if HP remains >0. |
+| Enemy and box exact same `τ`, same MiniBot | Batch CombatContact first; surviving BOX-bound MiniBot with valid reservation then damages box once and is consumed. Dead bot cannot damage box. |
 | Two finishing shots for same 1-HP box at exact same `τ` | Cannot legally both have terminal reservations; one commit, no negative HP/duplicate grant. |
 | Active boost expires at tick `k`, pending exists, shot due tick `k` | Pending becomes active **before** shot spawn; old multiplier not applied. |
 | Active1, Pending0, Box A final hit reserved; Box B final hit attempted | B finishing shot blocked/box locked; active+pending+promise never exceeds 2. |
-| One enemy attacked by two MiniBots at same `τ` | Stable EnemyId/MiniBotId ordering; only one new engagement per entity, another candidate re-evaluated. |
+| One enemy attacked by two MiniBots at same `τ` | Both eligible bots participate in one simultaneous HP-damage bucket; enemy strikes at most one chosen bot; result independent of list order. |
 | Fortress and base both reach zero in same tick | Existing `LoseBase` priority; exactly one terminal event. |
 
 ## 9. QA acceptance matrix — SPECIFIED, NOT RUN
@@ -165,8 +168,8 @@ Suppose multiplier A is active, a final Box B shot is in flight and has reserved
 | A12 | ATTACK multiplied, BOX/Forge unmultiplied; no shot-charge logic; clock advances during other routes. |
 | A13 | MiniBot HP2 preset survives at least one representative contact if damage allows, fights again; no duplicate death. |
 | A14 | Matched HP2 and HP3 presets use identical seed, waves, enemy values and commands; record base HP, breaches, TTK. |
-| A15 | Two enemies and two MiniBots with equal-time contacts: stable ID pairing; no repeated hits each render frame. |
-| A16 | Cooldown exact boundary, engagement release on death, surviving robot resumes next tick. |
+| A15 | Enemy HP2 targeted by two MiniBots HP2 at exact same TOI: bot damage2 total, enemy damage1 to one stable chosen bot, both bots survive with HP1/HP2; permutation invariant. |
+| A16 | At initial contact rational `k+τ`, first hit eligible; next hit exactly `k+τ+15` ticks (preset), never earlier. A third bot joining mid-cooldown does not grant enemy extra attack. |
 | A17 | Waves grouped at same tick, sorted IDs independent of wave record/collection permutation; warning precedes spawn. |
 | A18 | Boss with escort spawn same tick; warning/UI does not pause sim or block one-thumb aiming. |
 | A19 | Non-collinear box/enemy 2D swept rect collision; no cross-lane ghost hits or high-speed tunneling. |
@@ -175,19 +178,20 @@ Suppose multiplier A is active, a final Box B shot is in flight and has reserved
 | A22 | Base+fortress simultaneous zero, timeout, mid-boost terminal, 20× restart: one terminal event, no post-match rewards/IDs leak. |
 | A23 | Invariants per tick: resource conservation, box reservation reconciliation, reward at most once, entitlement count≤2, HP bounds. |
 | A24 | Mobile low-end grouped-wave + ×5 worst case: **measure** CPU/GC, logical vs visible peak, RAM, thermal, FPS and battery; no invented PASS. |
+| A25 | Same MiniBot exactly touches enemy and reserved box: first batched exchange, then **only if alive** BoxHP−1 and MiniBot consumed; if killed, box HP unchanged. Both branches with same input/order replay hashes. |
+| A26 | One Enemy with existing cooldown, a new allied MiniBot joins before enemy cooldown ends: new bot may strike once, **enemy may not attack again early**, no infinite zero-tick strike loop. |
 
 Performance sensitivity: at nominal 3 raw shots/s, each fully utilized ×2 12s adds up to `36` extra bots, ×3 10s up to `60`, ×5 6s up to `72`. These are **conditional emitted-unit deltas**, not live-peak measurements. Robots can now survive and remain active longer, so actual concurrent logical counts and contact pairs may increase even if 6-second ×5 is shorter. Maintain logical units regardless of rendering proxy cap (baseline `MaxVisibleMiniBots=120` is visual only); use deterministic broad-phase or fixed lane/spatial grid if profiling demonstrates need, never silently delete game units.
 
 ## 10. Migration, delivery, dependencies and blockers
 
-**Proposed future staged implementation only after Owner's new code directive:**
+**Owner GITHUB-006 granted a specific conditional code boundary for Game Developer #4** (not for Architect; no code in this PR):
 
-1. Versioned config schema + validation + frozen hash + HP2/HP3 data presets; legacy VS-01 remains selectable. Verify serialization, clone and preset isolation.
-2. Deterministic fixed-point 2D trajectory/TOI and multi-HP engagement engine as an opt-in BoxCombatV12 test harness; preserve old gate/QA2-01 sources until migration agreed.
-3. Box hit + reservation/terminal promise + exactly-once reward, queue/expiry logic and stable ID/hash/event tests.
-4. Authored grouped wave scheduler/alerts; connect UI/audio read-only and art hit/locked/HP states. Do not include Forge/Mech/Titan runtime development in VS-01/VS-02 without separate Owner approval.
-5. Two identical scripted 60-second scenarios except MiniBot HP2 vs HP3; actual Unity EditMode/PlayMode/device tests; Designer adjusts tunable data only after evidence, Owner selects next balance.
-6. Owner signs explicit compatibility policy for ARCH-003 PR #14 (keep as legacy fix spec, supersede portions for new ruleset, or independently implement old QA2-01 first). QA-003 independently checks both rule versions and hashes before any VS-01 completion claim.
+1. **Stage P1 NOW (Developer only):** isolated Draft PR from exact merged main, versioned editable validated balance schema, immutable config snapshots + ConfigHash, equivalent P2-HP2 and P3-HP3 presets, opt-in v1.2 ruleset/replay seam, focused tests. Legacy DEV-002.2 behavior retained byte-for-byte. **No combat, boxes, waves or new playable gameplay** in P1.
+2. **P2 only after hard gates:** Architect must publish exact-HEAD alignment, Designer must explicitly countersign **identical** provisional combat/box/chronology trial rules, and P1 validation/replay tests must pass. P2 is a **separate** Draft PR, implementing only **one** temporary 60-second arena: auto one-thumb MiniBots, HP2/HP3 combat survivors, **one** ×2 HP5 side box (1 MiniBot per successful hit), timed ×2 12 s, **one** simultaneously spawned enemy group, base/fortress outcomes and Restart. Test in real Unity where possible. Owner's P2 gate is automatic only when all conditions are demonstrably met.
+3. **Not P2:** full ×3/×5 boost lineup, boss, five-wave GDD sample, Mech/Titan/Forge gameplay, art-heavy UI/audio, original L3 migration, VS-02, any main merge or release sign-off. All require later Owner approval. Ruleset may hold future-safe data structures without exposing unapproved runtime features.
+4. **Legacy QA2-01:** preserve existing regression fixture and ARCH-003 Draft #14. Do not claim it is fixed by this proposal or by introducing BoxCombatV12; migration/legacy repair is a separately authorized work item.
+5. **Tests after P2 code exists:** comparable HP2/HP3 scripted runs with same wave inputs, full 26-case architecture QA matrix scaled to actual slice, Unity EditMode/PlayMode and independently verified replay/damage outcomes, plus scoped device profiling. Design mathematics are not runtime tests.
 
 **Dependencies:** [Designer #3](https://github.com/Gogenco/swarmforge-studio/issues/3)/[Draft #19](https://github.com/Gogenco/swarmforge-studio/pull/19) must update combat and all math; [Developer #4](https://github.com/Gogenco/swarmforge-studio/issues/4) prepares no-code prototype plan; [QA #9](https://github.com/Gogenco/swarmforge-studio/issues/9) owns matched test scripts; [Performance #8](https://github.com/Gogenco/swarmforge-studio/issues/8) owns live robot budget; [UI #6](https://github.com/Gogenco/swarmforge-studio/issues/6) owns locked box/active+pending/wave affordances; [Art #5](https://github.com/Gogenco/swarmforge-studio/issues/5) owns multi-HP hit feedback and group readability; [Sound #7](https://github.com/Gogenco/swarmforge-studio/issues/7) owns non-authoritative cues; [Owner #1](https://github.com/Gogenco/swarmforge-studio/issues/1) owns ruleset and implementation/merge approvals.
 
@@ -196,7 +200,26 @@ Performance sensitivity: at nominal 3 raw shots/s, each fully utilized ×2 12s a
 1. Approve or revise **engagement lock + simultaneous first hit + repeat strike cadence + next-tick resume**; configure damage/cooldown. Friendly HP stays a playtest variable.
 2. Approve or revise **swept fixed-point AABB logical hitboxes** and actual side-box route/interception geometry; prohibit fake cross-lane collision.
 3. Approve exact **same-TOI enemy-first / bot one-impact**, box terminal promise and LOCK before final shot, `ShotSuppressed`, and `k+1` reward activation with exclusive timer end. These proposals are required to settle reward consistency and deterministic ordering, but are **not yet canonical Owner gameplay decisions**.
-4. Confirm updated **GDD PR #19 exact HEAD**, revised 60-second example and wave/group balance; do not infer it is already reconciled from original head.
+4. Confirm **GDD PR #19 exact HEAD `2089e646223c9f7ca2de001e00a09337251ccac6`** versus this updated Architect PR, especially multi-ally same-time snapshot and survivor box-hit tie. Five-wave sample (4/6/7/8/9, 34 enemies, 93 hypothetical enemy HP) remains *design-only*; P2 permits **one** grouped wave and **one** ×2 box.
 5. Explicitly define first runtime slice and ARCH-003/QA2-01 migration; no Unity code, Draft merge or VS-02 before separate authorization.
 
 **Final architect status:** `ARCH_V12_PROPOSAL_READY_FOR_OWNER_REVIEW`. No runtime tests, compilation, mobile profiling, code, balance mutations or merges have occurred.
+
+## 11. GITHUB-006 exact-HEAD comparison and provisional P2 reconciliation
+
+**Source evidence:** [GDD #19 `2089e646223c9f7ca2de001e00a09337251ccac6`](https://github.com/Gogenco/swarmforge-studio/commit/2089e646223c9f7ca2de001e00a09337251ccac6) versus original [ARCH #23 `33d45659ec072523b6a709677fe827c9f9ab606e`](https://github.com/Gogenco/swarmforge-studio/commit/33d45659ec072523b6a709677fe827c9f9ab606e). Both remain Draft against `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9`; nothing is merged.
+
+| Design rule (latest GDD #19) | Prior ARCH-v1.2 mismatch or agreement | This docs revision / validation gate |
+| --- | --- | --- |
+| HP2 vs HP3 are **both** trials; damage1, enemy damage1, interval15 ticks only hypotheses | Already matched | Keep editable immutable presets; test both under same seed/commands. |
+| Multi-ally swarm attacks a shared enemy, all simultaneous damage from pre-batch HP | **CONFLICT:** old exclusive pair prevented multiple allies focusing the same enemy | **REVISED:** many-to-one enemy engagement; one enemy attack per eligible cadence, one bot strike each; same-time HP deltas applied together. Needs Designer countersign. |
+| Equal-TOI enemy+box: combat first, **surviving** MiniBot damages box, then is consumed | **CONFLICT:** old ARCH forbade even survivor's box hit | **REVISED:** alive survivor may make its one valid box hit after combat within same time bucket. Needs Designer countersign. |
+| Positive configurable contact interval; nearest then stable ID target priority | Old `k+1+CooldownTicks` delayed repeats beyond GDD's 15-tick period | **REVISED:** next strike at **absolute rational** last strike time + configured interval (initial 15 ticks); no extra enemy strike triggered by a joining ally. |
+| Boxes HP5/10/25, successful consumed bot, reward exactly once | Compatible | Reserve in-flight box hits; hold entitlement on final reservation; award once on terminal HP change. |
+| Active1+Pending1 nonstacking, locked extras, no earned reward dropped | GDD proposes post-hoc box-side escrow for earlier in-flight third award | Architect **prevents** third reward race by reserving entitlement **before** final shot and locking all other multiplier boxes when full; no extra queue state or silent loss. Designer approval required; escrow is fallback if entitlement reservation rejected. |
+| Timed ×2/×3/×5 12/10/6s; GDD sample times from sub-tick physical award | Provisional ARCH starts at tick **k+1** boundary; sample assumes activation at exact hit | Keep deterministic tick-boundary activation. Sample start/end estimates can shift by **<1/30 s**; GDD must label them ideal estimates and use actual tick ledger in P2. |
+| Side slots and 2D engagement radius; sample world coords are hypotheses | Rectangular fixed-point swept collider proposed by ARCH | Use explicit logical rectangle and tested route geometry for **P2 one-box** arena; neither box radius0.55 nor engagement radius0.6 is a finally approved physical collider. |
+| GDD 60s five-wave example 34 enemies/93HP; old L3 270HP unchanged | Old ARCH roadmap could be read as full-wave near-term implementation | Owner **P2** contains **one grouped wave**, not five, and one ×2 box. Five-wave GDD remains later design/QA scenario; old L3 untouched. |
+| Stable unit IDs, immutable replay/config versions, no legacy gate deletion | Compatible with required versioning | Explicit P1/P2 schema guard and replays, original QA2-01 independent blocker. |
+
+**P2 entry decision:** This Architect proposal is **technically coherent but not jointly signed off yet**. [Designer confirmation requested in PR #19](https://github.com/Gogenco/swarmforge-studio/pull/19#issuecomment-6880648760). Do not report `ARCH_V12_EXACT_HEAD_ALIGNED` as a two-role sign-off until Designer actually confirms the two revised combat/tie clauses (or Owner resolves disagreement). If no confirmation or a competing collision rule remains, status is **`BLOCKED_BY_DESIGNER_COMBAT_SIGNOFF` for P2**, while independent P1 data/config work may continue under Owner GITHUB-006. No code or merge by Architect.
