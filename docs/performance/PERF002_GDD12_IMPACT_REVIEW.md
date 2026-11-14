@@ -4,11 +4,13 @@
 - **New Owner direction:** [#18 — GD-006 / GDD v1.2](https://github.com/Gogenco/swarmforge-studio/issues/18)
 - **Current performance review:** [Draft PR #16](https://github.com/Gogenco/swarmforge-studio/pull/16), [`PERF002_VS01_PERFORMANCE_REVIEW.md`](PERF002_VS01_PERFORMANCE_REVIEW.md)
 - **Code baseline:** merged DEV-002.2 `main` SHA `99cfcdc0b4982e9e441cf23a8669a487a7d75ea9`
-- **Status:** `READY_FOR_OWNER_DESIGN_REVIEW`; **NO runtime measurements, no approved GDD v1.2 mechanics, no gameplay/Unity changes**
+- **Status:** `GITHUB-004 HISTORICAL EXPLORATORY REVIEW`; **no runtime measurements or gameplay/Unity changes**
+
+> **Important GITHUB-005 supersession:** Several choices described as undecided below have **since been approved by Owner** in Issue #18. The current canonical decisions, corrected time-only boost math, matched HP2/HP3 scenarios and grouped-wave test matrix are in [PERF-002 GITHUB-005 Prototype Preparation](PERF002_GITHUB005_PROTOTYPE_PERFORMANCE_PLAN.md). Read that document **first**; its approved design constants supersede older speculative assumptions below. Neither report authorizes Unity code changes or claims measured FPS.
 
 ## 1. Scope and explicit constraints
 
-Issue #18 approves **design exploration**, not Unity implementation. The Designer is preparing GDD v1.2. New box HP, hit rules, upgrade stacking, enemy HP, wave sizes, boss policy, fixed-gate migration and scope are **undecided**. The proposed changes below must **not** be implemented as accepted mechanics.
+At the time of the original GITHUB-004 exploration, Issue #18 approved design direction but had not resolved box HP, hit rules, boost stacking, multi-HP combat, waves, migration or first implementation scope. **This is a historical baseline**; later Owner decisions are consolidated in the linked GITHUB-005 document. Any remaining speculative choices below must **not** be implemented as accepted mechanics.
 
 The baseline currently has a 30-Hz deterministic integer simulation, one-bot/one-enemy mutual-consumption, fixed ×2/×1/×3 lanes, 120 **rendered** MiniBot cap, one initial enemy wave and primitive greybox. Architect [#2](https://github.com/Gogenco/swarmforge-studio/issues/2) / Draft [#14](https://github.com/Gogenco/swarmforge-studio/pull/14) address fixed-gate chronology only; Issue #18 explicitly states **PR #14 is not yet Owner-approved**. New box contacts and multi-hit behavior require an architectural compatibility decision *before* DEV-003 [#4](https://github.com/Gogenco/swarmforge-studio/issues/4) coding. Do not start VS-02 or merge any PR.
 
