@@ -11,6 +11,23 @@ namespace Swarmforge.Tests
     public sealed class V12TrialSceneSmokeTests
     {
         [UnityTest]
+        public IEnumerator V12Trial_FirstSoloMiniBotRendersAtExactCannonMuzzleX()
+        {
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            var entry = Object.FindFirstObjectByType<V12TrialEntryPoint>();
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            GameObject bot = GameObject.Find("P2_MiniBot");
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(bot, Is.Not.Null);
+            Assert.That(entry.CurrentSnapshot.Bots.Count, Is.GreaterThan(0));
+            Assert.That(Mathf.Abs(bot.transform.position.x - cannon.transform.position.x),
+                Is.LessThan(.00001f), "The initial green MiniBot must emerge at barrel center, never at ID-based ±X.");
+        }
+
+        [UnityTest]
         public IEnumerator V12Trial_StandaloneSceneLoadsWithBoxAndCorrectHP()
         {
             SceneManager.LoadScene("V12_Trial");

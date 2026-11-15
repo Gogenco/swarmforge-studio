@@ -21,6 +21,7 @@ namespace Swarmforge.Presentation
         private readonly Stack<GameObject> enemyPool = new Stack<GameObject>();
         private readonly HashSet<long> seen = new HashSet<long>();
         private readonly List<long> cleanup = new List<long>();
+        private readonly V12BotVisualCohorts botCohorts = new V12BotVisualCohorts();
         private readonly Material botMaterial;
         private readonly Material enemyMaterial;
         private readonly Material destroyedMaterial;
@@ -94,13 +95,13 @@ namespace Swarmforge.Presentation
             box.SetActive(s.BoxHP > 0);
             if (s.FortressHP <= 0) fortress.transform.localScale = new Vector3(4.8f, .4f, .9f);
             else fortress.transform.localScale = new Vector3(4.8f, 2.3f, .9f);
-            ShowUnits(s.Bots, activeBots, botPool, PrimitiveType.Capsule, botMaterial, "P2_MiniBot", 100);
-            ShowUnits(s.Enemies, activeEnemies, enemyPool, PrimitiveType.Sphere, enemyMaterial, "P2_Enemy", 100);
+            ShowUnits(s.Bots, activeBots, botPool, PrimitiveType.Capsule, botMaterial, "P2_MiniBot", 100, true);
+            ShowUnits(s.Enemies, activeEnemies, enemyPool, PrimitiveType.Sphere, enemyMaterial, "P2_Enemy", 100, false);
         }
 
         private void ShowUnits(IReadOnlyList<V12TrialUnitView> units,
             Dictionary<long, GameObject> active, Stack<GameObject> pool,
-            PrimitiveType primitive, Material material, string label, int visualLimit)
+            PrimitiveType primitive, Material material, string label, int visualLimit, bool greenBot)
         {
             seen.Clear();
             // Stable first-N visuals cap. All simulation entities remain logical.
@@ -113,7 +114,13 @@ namespace Swarmforge.Presentation
                     instance = Rent(pool, primitive, material, label);
                     active.Add(u.Id, instance);
                 }
-                Vector2 visualOffset = V12FormationLayout.ForId(u.Id);
+                // All green shots originate on the precise muzzle X/Z. Only
+                // actual coincident twin bots receive a persistent slot, and
+                // that slot eases outward as the pair travels forward.
+                // Red groups keep their existing stable ID formation.
+                Vector2 visualOffset = greenBot ?
+                    V12FormationLayout.ForBot(u.Position, config.AttackPathLength,
+                        botCohorts.GetOrAssign(u, units)) : V12FormationLayout.ForId(u.Id);
                 instance.transform.position = new Vector3(WorldX(u.X) + visualOffset.x,
                     primitive == PrimitiveType.Capsule ? .39f : .49f,
                     WorldZ(u.Position) + visualOffset.y);
@@ -129,6 +136,7 @@ namespace Swarmforge.Presentation
                 old.SetActive(false);
                 pool.Push(old);
                 active.Remove(cleanup[i]);
+                if (greenBot) botCohorts.Forget(cleanup[i]);
             }
         }
 
