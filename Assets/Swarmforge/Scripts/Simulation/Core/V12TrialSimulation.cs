@@ -654,9 +654,15 @@ namespace Swarmforge.Simulation
 
         private static void Hash(ref ulong hash, long number)
         {
+            // Signed values (including negative sentinel ticks) use the same
+            // canonical little-endian two's-complement bytes as before.
+            Hash(ref hash, unchecked((ulong)number));
+        }
+
+        private static void Hash(ref ulong hash, ulong bits)
+        {
             unchecked
             {
-                ulong bits = (ulong)number;
                 for (int i = 0; i < 8; i++)
                 { hash ^= (byte)(bits >> (i * 8)); hash *= 1099511628211UL; }
             }

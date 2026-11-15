@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using NUnit.Framework;
 using Swarmforge.Simulation;
 
@@ -6,6 +7,59 @@ namespace Swarmforge.Tests
 {
     public sealed class V12P2PlayableTests
     {
+        private const ulong FnvOffset = 14695981039346656037UL;
+
+        private static ulong InvokePrivateHash(Type argumentType, object value)
+        {
+            MethodInfo hash = typeof(V12TrialSimulation).GetMethod("Hash",
+                BindingFlags.Static | BindingFlags.NonPublic, null,
+                new[] { typeof(ulong).MakeByRefType(), argumentType }, null);
+            Assert.That(hash, Is.Not.Null, "Both signed and unsigned 64-bit hashes must be supported.");
+            object[] arguments = { FnvOffset, value };
+            hash.Invoke(null, arguments);
+            return (ulong)arguments[0];
+        }
+
+        [Test]
+        public void Hash_UnsignedHighBit_UsesEveryByteInCanonicalLittleEndianOrder()
+        {
+            const ulong input = 0xFEDCBA9876543210UL;
+            ulong expected = FnvOffset;
+            unchecked
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    expected ^= (byte)(input >> (8 * i));
+                    expected *= 1099511628211UL;
+                }
+            }
+            Assert.That(InvokePrivateHash(typeof(ulong), input), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Hash_SignedNegativeSentinel_PreservesOriginalEightBytes()
+        {
+            // Explicitly guard the old signed path while the new ulong path
+            // resolves Owner's CS1503 at ConfigHash/EventHash/CommandHash.
+            ulong signed = InvokePrivateHash(typeof(long), -1L);
+            ulong unsigned = InvokePrivateHash(typeof(ulong), ulong.MaxValue);
+            Assert.That(signed, Is.EqualTo(unsigned));
+        }
+
+        [Test]
+        public void SnapshotHash_IncludesUnsignedConfigEventAndCommandFingerprints()
+        {
+            V12TrialSimulation baseline = NewTrial();
+            V12TrialSimulation aimed = NewTrial();
+            Assert.That(aimed.SubmitAim(0, 1, -800), Is.True);
+            baseline.AdvanceOneTick();
+            aimed.AdvanceOneTick();
+            Assert.That(aimed.Snapshot().ConfigHash, Is.EqualTo(baseline.Snapshot().ConfigHash));
+            Assert.That(aimed.Snapshot().EventHash, Is.Not.EqualTo(baseline.Snapshot().EventHash));
+            Assert.That(aimed.Snapshot().CommandHash, Is.Not.EqualTo(baseline.Snapshot().CommandHash));
+            Assert.That(aimed.Snapshot().StateHash, Is.Not.EqualTo(baseline.Snapshot().StateHash));
+        }
+
         private static V12TrialSimulation NewTrial(int hp = 2)
         {
             return new V12TrialSimulation(new V12MatchConfig(V12P2Presets.Create(hp)));

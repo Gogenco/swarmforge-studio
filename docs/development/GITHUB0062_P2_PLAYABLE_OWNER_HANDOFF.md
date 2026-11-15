@@ -2,6 +2,13 @@
 
 **Status:** SOURCE CANDIDATE / UNITY VALIDATION REQUIRED. A local environment without Unity Editor or C# toolchain cannot certify a compiled or playable build. The Owner must run the newly added scene and tests before labeling P2 READY.
 
+## Owner P2 Safe Mode recovery (2026-11-15)
+
+- Owner verified three `CS1503` errors on the previous P2 HEAD `ef1631189b645fb8c1fc69467a1812b8954687ef`: `V12TrialSimulation.cs` lines 603, 621, 622 passed `ulong` values to the `long`-only hash function.
+- Added a `Hash(ref ulong, ulong)` overload retaining all eight canonical little-endian bytes, and directed the original `Hash(ref ulong, long)` through the same unchecked bit-preserving conversion. This changes no P2 gameplay decisions, random ordering, Unity packages, or scene assets.
+- Added three EditMode regressions for a high-bit unsigned value, negative signed sentinel compatibility, and state/event/command hash integration; plus reproducible static guard `node tools/validate-v12-p2-hash-recovery.mjs`.
+- **This source repair has not yet been compiled or run in Unity by the developer.** Owner should reopen the fresh exact-HEAD archive, confirm the 3 CS1503 errors are gone (and check for newly revealed errors), then run the complete EditMode and PlayMode suites and gameplay smoke before P2 acceptance.
+
 Canonical dependencies: [Owner #18](https://github.com/Gogenco/swarmforge-studio/issues/18), [Developer #4](https://github.com/Gogenco/swarmforge-studio/issues/4), [P1 #24](https://github.com/Gogenco/swarmforge-studio/pull/24), [P2 Draft #26](https://github.com/Gogenco/swarmforge-studio/pull/26).
 
 ## Unity Editor — opening P2
