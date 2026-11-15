@@ -113,9 +113,10 @@ namespace Swarmforge.Presentation
                     instance = Rent(pool, primitive, material, label);
                     active.Add(u.Id, instance);
                 }
-                float offset = ((u.Id % 3) - 1) * .10f;
-                instance.transform.position = new Vector3(WorldX(u.X) + offset,
-                    primitive == PrimitiveType.Capsule ? .39f : .49f, WorldZ(u.Position));
+                Vector2 visualOffset = V12FormationLayout.ForId(u.Id);
+                instance.transform.position = new Vector3(WorldX(u.X) + visualOffset.x,
+                    primitive == PrimitiveType.Capsule ? .39f : .49f,
+                    WorldZ(u.Position) + visualOffset.y);
                 instance.transform.localScale = primitive == PrimitiveType.Capsule ?
                     new Vector3(.30f, .32f, .30f) :
                     new Vector3(.54f + .10f * (u.MaxHP - 1), .54f, .54f);

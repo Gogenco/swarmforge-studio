@@ -9,6 +9,14 @@
 - Added three EditMode regressions for a high-bit unsigned value, negative signed sentinel compatibility, and state/event/command hash integration; plus reproducible static guard `node tools/validate-v12-p2-hash-recovery.mjs`.
 - **This source repair has not yet been compiled or run in Unity by the developer.** Owner should reopen the fresh exact-HEAD archive, confirm the 3 CS1503 errors are gone (and check for newly revealed errors), then run the complete EditMode and PlayMode suites and gameplay smoke before P2 acceptance.
 
+## Owner P2 visual formation repair (2026-11-15)
+
+- Owner has now independently run `V12_Trial.unity` in Unity 6000.3.28f1 and reported EditMode **50/50 PASS**, PlayMode **5/5 PASS**, no Safe Mode, a visibly broken ×2 box, `BOOST ×2 8s`, and a grouped wave. This evidence validates those observed parts of P2 only; do not extrapolate to all C1–C6/queues/devices.
+- Owner found two green ×2-spawned MiniBots visually merged and same-lane red enemies overlapping. The cause was presentation-only X jitter of ±0.10 world units, smaller than the sphere/capsule diameters.
+- `V12TrialView.ShowUnits()` now obtains an immutable-ID-derived formation offset from `V12FormationLayout.ForId()`: X ±0.52 and Z ±0.45 world units (four distinct positions; neighboring IDs separated at least 0.90). This is **only applied after reading the snapshot**. Same-tick ×2 copies and same-lane paired enemies retain exact original X/Z in the simulation, while appearing as separate models on screen.
+- Added four Unity EditMode regression tests for adjacent-ID visibility, four-slot bounds, replay/frame order stability, and unchanged authoritative state/event/command hashes; plus standalone static guard `node tools/validate-v12-p2-visual-spacing.mjs`.
+- **Required Owner retest:** open the new exact-HEAD ZIP, run `V12_Trial.unity` in 9:16, observe two visibly separate green bots per ×2 shot and two distinct red enemies per lane, compare screenshot before/after, rerun EditMode/PlayMode. Verify the narrow portrait arena, box and HUD remain visible. Screenshots/manual result are pending; no declaration that visual QA PASS already happened.
+
 Canonical dependencies: [Owner #18](https://github.com/Gogenco/swarmforge-studio/issues/18), [Developer #4](https://github.com/Gogenco/swarmforge-studio/issues/4), [P1 #24](https://github.com/Gogenco/swarmforge-studio/pull/24), [P2 Draft #26](https://github.com/Gogenco/swarmforge-studio/pull/26).
 
 ## Unity Editor — opening P2
