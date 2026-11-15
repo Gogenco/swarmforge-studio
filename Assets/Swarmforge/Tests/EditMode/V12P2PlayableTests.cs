@@ -78,6 +78,10 @@ namespace Swarmforge.Tests
             Assert.That(b.ShotPeriodTicks, Is.EqualTo(30));
             Assert.That(a.FirstShotTick, Is.EqualTo(0));
             Assert.That(a.MatchTicks, Is.EqualTo(1800));
+            Assert.That(a.FortressHP, Is.EqualTo(40));
+            Assert.That(b.FortressHP, Is.EqualTo(40));
+            Assert.That(a.BaseHP, Is.EqualTo(3));
+            Assert.That(b.BaseHP, Is.EqualTo(3));
             Assert.That(a.Boxes.Length, Is.EqualTo(1));
             Assert.That(a.Boxes[0].MaxHP, Is.EqualTo(5));
             Assert.That(a.Boxes[0].Multiplier, Is.EqualTo(2));
@@ -290,20 +294,58 @@ namespace Swarmforge.Tests
             Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.Win));
         }
 
-        [Test]
-        public void Terminal_AllFourEnemiesBreachMeansDefeat()
+        [TestCase(2)]
+        [TestCase(3)]
+        public void CanonicalP2_BoxBoostDefendBothLanesThenAttack_ReachableVictory(int hp)
         {
-            var sim = NewTrial();
+            // Real P2 HP/HP3, 40HP fortress, base HP3, four scouts, all
+            // approved clocks/box rules. Imitate scene Start(): the first
+            // automatic tick-0 shot is fired before the player can drag.
+            var sim = NewTrial(hp);
+            sim.AdvanceOneTick();
+            Assert.That(sim.SubmitAim(1, 1, -800), Is.True);
+            // Five left-lane box shots: ticks 30/60/90/120/150. The reward
+            // activates on tick 177. Two real x2 bots defend each enemy lane.
+            Assert.That(sim.SubmitAim(181, 2, 800), Is.True);
+            Assert.That(sim.SubmitAim(211, 3, 0), Is.True);
+
+            while (!sim.IsTerminal && sim.NextTick < 1800) sim.AdvanceOneTick();
+            V12TrialSnapshot terminal = sim.Snapshot();
+            Assert.That(terminal.Outcome, Is.EqualTo(MatchOutcome.Win),
+                "Canonical HP40 victory must be reached by legal aim commands, not a 1HP fixture.");
+            Assert.That(terminal.Tick, Is.LessThan(1799), "Win must precede the 60s timeout.");
+            Assert.That(terminal.BoxHits, Is.EqualTo(5));
+            Assert.That(terminal.BoxHP, Is.EqualTo(0));
+            Assert.That(terminal.WaveGroupsSpawned, Is.EqualTo(1));
+            Assert.That(terminal.EnemiesSpawned, Is.EqualTo(4));
+            Assert.That(terminal.EnemiesKilled, Is.EqualTo(4),
+                "Both red pairs should be defeated, not merely bypassed.");
+            Assert.That(terminal.BaseHP, Is.EqualTo(3), "Both lanes must actually be defended.");
+            Assert.That(terminal.FortressHP, Is.EqualTo(0));
+            int boostedShots = 0;
+            foreach (V12TrialEvent e in sim.History)
+                if (e.Kind == V12TrialEventKind.RawShot && e.Value == 2) boostedShots++;
+            Assert.That(boostedShots, Is.EqualTo(12), "Canonical win must include the full 12s x2 cycle.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Terminal_AllFourEnemiesBreachMeansDefeat(int hp)
+        {
+            var sim = NewTrial(hp);
             for (int i = 0; i < 520 && !sim.IsTerminal; i++) sim.AdvanceOneTick();
             Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.LoseBase));
         }
 
         [TestCase(2)]
         [TestCase(3)]
-        public void Terminal_NoBoxAndTenBaseHp_ExpiresAsTimeoutAfterExactly1800Ticks(int hp)
+        public void Terminal_HighFortressAndTenBaseHp_ExpiresAsTimeoutAfterExactly1800Ticks(int hp)
         {
+            // This is a controlled terminal-outcome fixture, intentionally
+            // not the new canonical HP40 match (whose victory is tested above).
             V12BalanceDefinition balance = V12P2Presets.Create(hp);
             balance.BaseHP = 10;
+            balance.FortressHP = 100;
             var sim = new V12TrialSimulation(new V12MatchConfig(balance));
             for (int tick = 0; tick < 1799; tick++)
                 Assert.That(sim.AdvanceOneTick().Outcome, Is.EqualTo(MatchOutcome.Playing));
@@ -316,11 +358,11 @@ namespace Swarmforge.Tests
 
         [TestCase(2)]
         [TestCase(3)]
-        public void Balance_CanonicalFortress65ExceedsEvenIdealMaximumDamage(int hp)
+        public void Balance_CanonicalFortress40FitsOptimisticDamageBudget(int hp)
         {
-            // A strict *optimistic* bound: assume all bots hit the fortress,
-            // no enemy casualties, and all 12 boosted shots occur in time.
-            // Five bots must first be sacrificed to open the 5HP reward box.
+            // The optimistic bound is a necessary-but-not-sufficient test;
+            // CanonicalP2_BoxBoostDefendBothLanesThenAttack_ReachableVictory
+            // also checks a legal deterministic path with actual combat.
             V12BalanceDefinition balance = V12P2Presets.Create(hp);
             int movementTicks = (balance.AttackPathLength + balance.MiniBotSpeedPerTick - 1) /
                 balance.MiniBotSpeedPerTick;
@@ -332,9 +374,8 @@ namespace Swarmforge.Tests
             Assert.That(scheduledShots, Is.EqualTo(55));
             Assert.That(maxBoostedShots, Is.EqualTo(12));
             Assert.That(upperBoundOnDamage, Is.EqualTo(62));
-            Assert.That(balance.FortressHP, Is.EqualTo(65), "Do not change Owner's fortress HP silently.");
-            Assert.That(balance.FortressHP, Is.GreaterThan(upperBoundOnDamage),
-                "Owner approval is required for a lower fortress HP or another time/balance change.");
+            Assert.That(balance.FortressHP, Is.EqualTo(40), "Owner-approved P2 trial balance.");
+            Assert.That(balance.FortressHP, Is.LessThanOrEqualTo(upperBoundOnDamage));
         }
 
         [Test]
@@ -359,7 +400,10 @@ namespace Swarmforge.Tests
         {
             V12BalanceDefinition original = V12BalanceDefinition.CreateTrialPreset(2);
             Assert.That(original.Boxes.Length, Is.EqualTo(3));
+            Assert.That(original.FortressHP, Is.EqualTo(100));
+            Assert.That(original.ShotPeriodTicks, Is.EqualTo(10));
             Assert.That(V12P2Presets.Create(2).Boxes.Length, Is.EqualTo(1));
+            Assert.That(V12P2Presets.Create(2).FortressHP, Is.EqualTo(40));
         }
     }
 }

@@ -22,7 +22,7 @@ MonoBehaviour:
     FirstShotTick: 0
     ShotPeriodTicks: 30
     BaseHP: 3
-    FortressHP: 65
+    FortressHP: 40
     MiniBotMaxHP: 2
     MiniBotDamage: 1
     MiniBotSpeedPerTick: 340

@@ -21,6 +21,8 @@ namespace Swarmforge.Tests
             Assert.That(entry.CurrentBotHP, Is.EqualTo(2));
             Assert.That(entry.CurrentSnapshot, Is.Not.Null);
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+            Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40),
+                "Owner-approved P2 HP40 must be loaded from the Unity HP2 asset.");
             Assert.That(entry.CurrentSnapshot.Outcome, Is.EqualTo(MatchOutcome.Playing));
             Assert.That(entry.CurrentSnapshot.RawShots, Is.EqualTo(1),
                 "Scene should fire one MiniBot immediately at tick zero.");
@@ -50,6 +52,8 @@ namespace Swarmforge.Tests
                 Is.EqualTo(new V12MatchConfig(V12P2Presets.Create(3)).ConfigHash),
                 "Authored HP3 ScriptableObject must match the approved one-per-second fallback.");
             Assert.That(entry.CurrentSnapshot.BoxMaxHP, Is.EqualTo(5));
+            Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40),
+                "Owner-approved P2 HP40 must be loaded from the Unity HP3 asset.");
             entry.RestartMatch();
             Assert.That(entry.SimulationTick, Is.EqualTo(0));
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));

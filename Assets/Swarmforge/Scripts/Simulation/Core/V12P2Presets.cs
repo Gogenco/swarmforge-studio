@@ -15,7 +15,8 @@ namespace Swarmforge.Simulation
             // Owner P2 fire-rate approval: one raw shot per 30 simulation
             // ticks. The active ×2 boost copies that shot (2 bots/sec).
             value.ShotPeriodTicks = 30;
-            value.FortressHP = 65;
+            // Owner-approved P2 trial balance candidate; P1/VS-01 remain as-is.
+            value.FortressHP = 40;
             value.BaseHP = 3;
             value.EnemyTypes = new[]
             {
