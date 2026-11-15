@@ -73,6 +73,10 @@ namespace Swarmforge.Tests
             V12BalanceDefinition b = V12P2Presets.Create(3);
             Assert.That(a.MiniBotMaxHP, Is.EqualTo(2));
             Assert.That(b.MiniBotMaxHP, Is.EqualTo(3));
+            Assert.That(a.TickRate, Is.EqualTo(30));
+            Assert.That(a.ShotPeriodTicks, Is.EqualTo(30));
+            Assert.That(b.ShotPeriodTicks, Is.EqualTo(30));
+            Assert.That(a.FirstShotTick, Is.EqualTo(0));
             Assert.That(a.MatchTicks, Is.EqualTo(1800));
             Assert.That(a.Boxes.Length, Is.EqualTo(1));
             Assert.That(a.Boxes[0].MaxHP, Is.EqualTo(5));
@@ -87,10 +91,14 @@ namespace Swarmforge.Tests
         [Test]
         public void Box_ExactlyFiveContacts_Break_AndGrantNextTickX2For360Ticks()
         {
-            V12TrialSimulation sim = NewTrial();
+            // Keep the test alive through the entire boost window, independently
+            // of the separately verified four-enemy BaseHP=3 defeat scenario.
+            V12BalanceDefinition balance = V12P2Presets.Create(2);
+            balance.BaseHP = 10;
+            var sim = new V12TrialSimulation(new V12MatchConfig(balance));
             Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
             int rewardTick = -1;
-            for (int t = 0; t < 120 && rewardTick < 0; t++)
+            for (int t = 0; t < 240 && rewardTick < 0; t++)
             {
                 V12TrialSnapshot s = sim.AdvanceOneTick();
                 foreach (V12TrialEvent e in s.RecentEvents)
@@ -110,6 +118,107 @@ namespace Swarmforge.Tests
             Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(2), "End tick must be exclusive.");
             sim.AdvanceOneTick();
             Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void FireRate_X1_ExactlyOneBotEveryThirtyTicksFromTickZero(int hp)
+        {
+            V12TrialSimulation sim = NewTrial(hp);
+            for (int tick = 0; tick <= 90; tick++)
+            {
+                V12TrialSnapshot snapshot = sim.AdvanceOneTick();
+                int expected = tick / 30 + 1;
+                Assert.That(snapshot.RawShots, Is.EqualTo(expected), "Raw shot on tick " + tick);
+                Assert.That(snapshot.BotsProduced, Is.EqualTo(expected), "Bot count on tick " + tick);
+                int rawOnTick = 0, botsOnTick = 0;
+                foreach (V12TrialEvent e in snapshot.RecentEvents)
+                {
+                    if (e.Kind == V12TrialEventKind.RawShot)
+                    {
+                        rawOnTick++;
+                        Assert.That(e.Time.Tick, Is.EqualTo(tick));
+                        Assert.That(e.Value, Is.EqualTo(1));
+                    }
+                    if (e.Kind == V12TrialEventKind.BotSpawned) botsOnTick++;
+                }
+                int expectedOnTick = tick % 30 == 0 ? 1 : 0;
+                Assert.That(rawOnTick, Is.EqualTo(expectedOnTick));
+                Assert.That(botsOnTick, Is.EqualTo(expectedOnTick));
+            }
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void FireRate_X2_TwoBotsAtEachShot_ThenReturnsToOne(int hp)
+        {
+            V12BalanceDefinition balance = V12P2Presets.Create(hp);
+            balance.BaseHP = 10;
+            var sim = new V12TrialSimulation(new V12MatchConfig(balance));
+            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            int rewardTick = -1, activationTick = -1, expiryTick = -1;
+            int boostedShots = 0, boostedBots = 0;
+            for (int tick = 0; tick <= 510; tick++)
+            {
+                V12TrialSnapshot snapshot = sim.AdvanceOneTick();
+                int rawOnTick = 0, botsOnTick = 0;
+                foreach (V12TrialEvent e in snapshot.RecentEvents)
+                {
+                    if (e.Kind == V12TrialEventKind.RewardEarned) rewardTick = tick;
+                    if (e.Kind == V12TrialEventKind.BoostStarted) activationTick = tick;
+                    if (e.Kind == V12TrialEventKind.BoostExpired) expiryTick = tick;
+                    if (e.Kind == V12TrialEventKind.RawShot)
+                    {
+                        rawOnTick++;
+                        Assert.That(tick % 30, Is.EqualTo(0), "Boost must not change the shot clock.");
+                        Assert.That(e.Value, Is.EqualTo(snapshot.BoostMultiplier));
+                        if (e.Value == 2) boostedShots++;
+                    }
+                    if (e.Kind == V12TrialEventKind.BotSpawned) botsOnTick++;
+                }
+                Assert.That(rawOnTick, Is.LessThanOrEqualTo(1));
+                if (rawOnTick == 1)
+                {
+                    Assert.That(botsOnTick, Is.EqualTo(snapshot.BoostMultiplier),
+                        "A raw shot should produce one or two bots on tick " + tick);
+                    if (snapshot.BoostMultiplier == 2) boostedBots += botsOnTick;
+                }
+                Assert.That(snapshot.Outcome, Is.EqualTo(MatchOutcome.Playing));
+            }
+            Assert.That(rewardTick, Is.EqualTo(146), "Five box hits are spaced 30 ticks apart.");
+            Assert.That(activationTick, Is.EqualTo(147), "Reward is not active on its impact tick.");
+            Assert.That(expiryTick, Is.EqualTo(507), "Twelve seconds are 360 simulation ticks.");
+            Assert.That(boostedShots, Is.EqualTo(12));
+            Assert.That(boostedBots, Is.EqualTo(24));
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
+            Assert.That(sim.Snapshot().BoxHits, Is.EqualTo(5));
+            V12TrialEvent finalShot = default(V12TrialEvent);
+            foreach (V12TrialEvent e in sim.Snapshot().RecentEvents)
+                if (e.Kind == V12TrialEventKind.RawShot) finalShot = e;
+            Assert.That(finalShot.Time.Tick, Is.EqualTo(510));
+            Assert.That(finalShot.Value, Is.EqualTo(1), "Post-boost shot must produce only one bot.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Restart_NewSimulationResetsOnePerSecondScheduleAndReplayState(int hp)
+        {
+            var config = new V12MatchConfig(V12P2Presets.Create(hp));
+            var previous = new V12TrialSimulation(config);
+            V12TrialSnapshot originalFirst = previous.AdvanceOneTick();
+            for (int tick = 1; tick <= 100; tick++) previous.AdvanceOneTick();
+            var restarted = new V12TrialSimulation(config);
+            Assert.That(restarted.NextTick, Is.EqualTo(0));
+            V12TrialSnapshot firstAgain = restarted.AdvanceOneTick();
+            Assert.That(firstAgain.Tick, Is.EqualTo(0));
+            Assert.That(firstAgain.RawShots, Is.EqualTo(1));
+            Assert.That(firstAgain.BotsProduced, Is.EqualTo(1));
+            Assert.That(firstAgain.StateHash, Is.EqualTo(originalFirst.StateHash));
+            Assert.That(firstAgain.EventHash, Is.EqualTo(originalFirst.EventHash));
+            for (int tick = 1; tick <= 29; tick++) restarted.AdvanceOneTick();
+            Assert.That(restarted.Snapshot().RawShots, Is.EqualTo(1));
+            restarted.AdvanceOneTick();
+            Assert.That(restarted.Snapshot().RawShots, Is.EqualTo(2));
         }
 
         [Test]
@@ -187,6 +296,45 @@ namespace Swarmforge.Tests
             var sim = NewTrial();
             for (int i = 0; i < 520 && !sim.IsTerminal; i++) sim.AdvanceOneTick();
             Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.LoseBase));
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Terminal_NoBoxAndTenBaseHp_ExpiresAsTimeoutAfterExactly1800Ticks(int hp)
+        {
+            V12BalanceDefinition balance = V12P2Presets.Create(hp);
+            balance.BaseHP = 10;
+            var sim = new V12TrialSimulation(new V12MatchConfig(balance));
+            for (int tick = 0; tick < 1799; tick++)
+                Assert.That(sim.AdvanceOneTick().Outcome, Is.EqualTo(MatchOutcome.Playing));
+            V12TrialSnapshot terminal = sim.AdvanceOneTick();
+            Assert.That(terminal.Tick, Is.EqualTo(1799));
+            Assert.That(terminal.Outcome, Is.EqualTo(MatchOutcome.LoseTimeout));
+            Assert.That(terminal.FortressHP, Is.GreaterThan(0));
+            Assert.That(sim.NextTick, Is.EqualTo(1800));
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Balance_CanonicalFortress65ExceedsEvenIdealMaximumDamage(int hp)
+        {
+            // A strict *optimistic* bound: assume all bots hit the fortress,
+            // no enemy casualties, and all 12 boosted shots occur in time.
+            // Five bots must first be sacrificed to open the 5HP reward box.
+            V12BalanceDefinition balance = V12P2Presets.Create(hp);
+            int movementTicks = (balance.AttackPathLength + balance.MiniBotSpeedPerTick - 1) /
+                balance.MiniBotSpeedPerTick;
+            int latestShotTick = balance.MatchTicks - 1 - movementTicks;
+            int scheduledShots = 1 + (latestShotTick - balance.FirstShotTick) / balance.ShotPeriodTicks;
+            int maxBoostedShots = (balance.Boxes[0].DurationTicks + balance.ShotPeriodTicks - 1) /
+                balance.ShotPeriodTicks;
+            int upperBoundOnDamage = scheduledShots + maxBoostedShots - balance.Boxes[0].MaxHP;
+            Assert.That(scheduledShots, Is.EqualTo(55));
+            Assert.That(maxBoostedShots, Is.EqualTo(12));
+            Assert.That(upperBoundOnDamage, Is.EqualTo(62));
+            Assert.That(balance.FortressHP, Is.EqualTo(65), "Do not change Owner's fortress HP silently.");
+            Assert.That(balance.FortressHP, Is.GreaterThan(upperBoundOnDamage),
+                "Owner approval is required for a lower fortress HP or another time/balance change.");
         }
 
         [Test]

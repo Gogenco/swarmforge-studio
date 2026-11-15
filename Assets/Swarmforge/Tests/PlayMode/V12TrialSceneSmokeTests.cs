@@ -22,6 +22,11 @@ namespace Swarmforge.Tests
             Assert.That(entry.CurrentSnapshot, Is.Not.Null);
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
             Assert.That(entry.CurrentSnapshot.Outcome, Is.EqualTo(MatchOutcome.Playing));
+            Assert.That(entry.CurrentSnapshot.RawShots, Is.EqualTo(1),
+                "Scene should fire one MiniBot immediately at tick zero.");
+            Assert.That(entry.CurrentSnapshot.ConfigHash,
+                Is.EqualTo(new V12MatchConfig(V12P2Presets.Create(2)).ConfigHash),
+                "Authored HP2 ScriptableObject must match the approved one-per-second fallback.");
             Assert.That(GameObject.Find("V12_Trial_Camera"), Is.Not.Null);
             Assert.That(GameObject.Find("X2_Destructible_Box"), Is.Not.Null);
             Assert.That(GameObject.Find("P2_Auto_Cannon"), Is.Not.Null);
@@ -41,10 +46,14 @@ namespace Swarmforge.Tests
             yield return null;
             Assert.That(entry.CurrentBotHP, Is.EqualTo(3));
             Assert.That(entry.CurrentSnapshot.ConfigHash, Is.Not.EqualTo(0));
+            Assert.That(entry.CurrentSnapshot.ConfigHash,
+                Is.EqualTo(new V12MatchConfig(V12P2Presets.Create(3)).ConfigHash),
+                "Authored HP3 ScriptableObject must match the approved one-per-second fallback.");
             Assert.That(entry.CurrentSnapshot.BoxMaxHP, Is.EqualTo(5));
             entry.RestartMatch();
             Assert.That(entry.SimulationTick, Is.EqualTo(0));
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+            Assert.That(entry.CurrentSnapshot.RawShots, Is.EqualTo(1));
             Assert.That(GameObject.Find("X2_Destructible_Box"), Is.Not.Null);
         }
 

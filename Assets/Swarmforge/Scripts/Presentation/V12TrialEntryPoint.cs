@@ -196,7 +196,7 @@ namespace Swarmforge.Presentation
             GUI.Label(new Rect(20, hintY + 33, width - 40, 23),
                 "LEFT: BREAK x2 BOX    |    DEFEND THE BASE", line);
             GUI.Label(new Rect(20, hintY + 62, width - 40, 23),
-                "AUTO-FIRE   |   GROUP WAVE AT 6s", line);
+                "AUTO-FIRE: x1 1/s    x2 2/s", line);
             GUI.matrix = oldMatrix;
         }
     }

@@ -12,6 +12,9 @@ namespace Swarmforge.Simulation
             V12BalanceDefinition value = V12BalanceDefinition.CreateTrialPreset(miniBotHp);
             value.ProfileId = miniBotHp == 2 ? "P2_HP2" : "P2_HP3";
             value.LevelId = "P2_PLAYABLE_60S";
+            // Owner P2 fire-rate approval: one raw shot per 30 simulation
+            // ticks. The active ×2 boost copies that shot (2 bots/sec).
+            value.ShotPeriodTicks = 30;
             value.FortressHP = 65;
             value.BaseHP = 3;
             value.EnemyTypes = new[]

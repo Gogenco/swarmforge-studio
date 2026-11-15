@@ -20,7 +20,7 @@ MonoBehaviour:
     TickRate: 30
     MatchTicks: 1800
     FirstShotTick: 0
-    ShotPeriodTicks: 10
+    ShotPeriodTicks: 30
     BaseHP: 3
     FortressHP: 65
     MiniBotMaxHP: 2
