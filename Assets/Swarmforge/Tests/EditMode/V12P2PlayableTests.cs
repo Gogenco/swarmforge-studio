@@ -154,18 +154,18 @@ namespace Swarmforge.Tests
 
         [TestCase(2)]
         [TestCase(3)]
-        public void FireRate_X2_TwoBotsAtEachShot_ThenReturnsToOne(int hp)
+        public void FireRate_X2_OneImmediateOneDelayedPerRawShot_ThenReturnsToOne(int hp)
         {
             V12BalanceDefinition balance = V12P2Presets.Create(hp);
             balance.BaseHP = 10;
             var sim = new V12TrialSimulation(new V12MatchConfig(balance));
             Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
             int rewardTick = -1, activationTick = -1, expiryTick = -1;
-            int boostedShots = 0, boostedBots = 0;
+            int boostedShots = 0, boostedBots = 0, pendingDue = -1;
             for (int tick = 0; tick <= 510; tick++)
             {
                 V12TrialSnapshot snapshot = sim.AdvanceOneTick();
-                int rawOnTick = 0, botsOnTick = 0;
+                int rawOnTick = 0, botsOnTick = 0, immediateMultiplier = 0;
                 foreach (V12TrialEvent e in snapshot.RecentEvents)
                 {
                     if (e.Kind == V12TrialEventKind.RewardEarned) rewardTick = tick;
@@ -174,33 +174,118 @@ namespace Swarmforge.Tests
                     if (e.Kind == V12TrialEventKind.RawShot)
                     {
                         rawOnTick++;
-                        Assert.That(tick % 30, Is.EqualTo(0), "Boost must not change the shot clock.");
+                        Assert.That(tick % 30, Is.EqualTo(0), "Boost cannot change the raw shot clock.");
                         Assert.That(e.Value, Is.EqualTo(snapshot.BoostMultiplier));
+                        immediateMultiplier = e.Value;
                         if (e.Value == 2) boostedShots++;
                     }
                     if (e.Kind == V12TrialEventKind.BotSpawned) botsOnTick++;
                 }
                 Assert.That(rawOnTick, Is.LessThanOrEqualTo(1));
-                if (rawOnTick == 1)
+                int expectedOnTick = rawOnTick;
+                if (pendingDue == tick)
                 {
-                    Assert.That(botsOnTick, Is.EqualTo(snapshot.BoostMultiplier),
-                        "A raw shot should produce one or two bots on tick " + tick);
-                    if (snapshot.BoostMultiplier == 2) boostedBots += botsOnTick;
+                    expectedOnTick++;
+                    boostedBots++; // committed follower from previous raw ×2 shot
+                    pendingDue = -1;
                 }
+                if (immediateMultiplier == 2)
+                {
+                    boostedBots++; // first real robot at raw shot time
+                    pendingDue = tick + V12TrialSimulation.BoostFollowupDelayTicks;
+                }
+                Assert.That(botsOnTick, Is.EqualTo(expectedOnTick),
+                    "Each ×2 shot emits ONE now and ONE after the deterministic gap (tick " + tick + ").");
                 Assert.That(snapshot.Outcome, Is.EqualTo(MatchOutcome.Playing));
             }
-            Assert.That(rewardTick, Is.EqualTo(146), "Five box hits are spaced 30 ticks apart.");
-            Assert.That(activationTick, Is.EqualTo(147), "Reward is not active on its impact tick.");
-            Assert.That(expiryTick, Is.EqualTo(507), "Twelve seconds are 360 simulation ticks.");
+            Assert.That(rewardTick, Is.EqualTo(146), "Five 30-tick-separated chest hits.");
+            Assert.That(activationTick, Is.EqualTo(147));
+            Assert.That(expiryTick, Is.EqualTo(507));
             Assert.That(boostedShots, Is.EqualTo(12));
-            Assert.That(boostedBots, Is.EqualTo(24));
+            Assert.That(boostedBots, Is.EqualTo(24), "12 committed ×2 shots must create 24 actual MiniBots.");
+            Assert.That(pendingDue, Is.EqualTo(-1), "Every boosted follower must have been emitted.");
             Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
             Assert.That(sim.Snapshot().BoxHits, Is.EqualTo(5));
+            Assert.That(sim.Snapshot().BotsProduced, Is.EqualTo(sim.Snapshot().RawShots + boostedShots));
             V12TrialEvent finalShot = default(V12TrialEvent);
             foreach (V12TrialEvent e in sim.Snapshot().RecentEvents)
                 if (e.Kind == V12TrialEventKind.RawShot) finalShot = e;
             Assert.That(finalShot.Time.Tick, Is.EqualTo(510));
-            Assert.That(finalShot.Value, Is.EqualTo(1), "Post-boost shot must produce only one bot.");
+            Assert.That(finalShot.Value, Is.EqualTo(1), "Post-boost raw shot creates one bot.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void BoostPair_SecondBotUsesOriginalXEvenIfCannonMoves(int hp)
+        {
+            var sim = NewTrial(hp);
+            Assert.That(sim.SubmitAim(0, 1, -950), Is.True); // unlock x2 box
+            Assert.That(sim.SubmitAim(180, 2, 0), Is.True); // x2 shot center
+            Assert.That(sim.SubmitAim(181, 3, 950), Is.True); // player now aims elsewhere
+            int firstTick = -1, secondTick = -1, firstId = -1, secondId = -1;
+            for (int tick = 0; tick <= 188; tick++)
+            {
+                V12TrialSnapshot snapshot = sim.AdvanceOneTick();
+                foreach (V12TrialEvent e in snapshot.RecentEvents)
+                {
+                    if (e.Kind == V12TrialEventKind.BotSpawned && tick == 180)
+                    { firstTick = tick; firstId = (int)e.ActorId; }
+                    if (e.Kind == V12TrialEventKind.BotSpawned && tick == 188)
+                    { secondTick = tick; secondId = (int)e.ActorId; }
+                }
+            }
+            Assert.That(firstTick, Is.EqualTo(180));
+            Assert.That(secondTick, Is.EqualTo(180 + V12TrialSimulation.BoostFollowupDelayTicks));
+            Assert.That(secondId, Is.GreaterThan(firstId));
+            Assert.That(sim.Snapshot().CannonX, Is.EqualTo(950));
+            V12TrialUnitView first = default(V12TrialUnitView), second = default(V12TrialUnitView);
+            int found = 0;
+            foreach (V12TrialUnitView bot in sim.Snapshot().Bots)
+            {
+                if (bot.Id == firstId) { first = bot; found++; }
+                if (bot.Id == secondId) { second = bot; found++; }
+            }
+            Assert.That(found, Is.EqualTo(2), "Both sequential units must still be alive before combat.");
+            Assert.That(first.X, Is.EqualTo(0));
+            Assert.That(second.X, Is.EqualTo(0), "Follow-up must never adopt a later cannon aim.");
+            Assert.That(second.Position, Is.EqualTo(0), "Follow-up must emerge at the muzzle, not jump ahead.");
+            Assert.That(first.Position - second.Position, Is.GreaterThanOrEqualTo(7 * 340),
+                "The pair must be individually visible in single file.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void BoostFollower_IsPromisedEvenAfterX2ExpiresBeforeItsDueTick(int hp)
+        {
+            V12BalanceDefinition balance = V12P2Presets.Create(hp);
+            balance.BaseHP = 10;
+            balance.FortressHP = 100;
+            // Fifth chest impact occurs on tick150; boost starts151,
+            // expires511. Last boosted raw shot is tick510; follower due518.
+            balance.Boxes[0] = new V12BoxBalance("X2", -950, 10450, 450, 5, 2, 360);
+            var sim = new V12TrialSimulation(new V12MatchConfig(balance));
+            Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
+            int rewardTick = -1, expiredTick = -1;
+            int raw510 = 0, at510 = 0, at518 = 0;
+            for (int tick = 0; tick <= 518; tick++)
+            {
+                V12TrialSnapshot s = sim.AdvanceOneTick();
+                foreach (V12TrialEvent e in s.RecentEvents)
+                {
+                    if (e.Kind == V12TrialEventKind.RewardEarned) rewardTick = tick;
+                    if (e.Kind == V12TrialEventKind.BoostExpired) expiredTick = tick;
+                    if (e.Kind == V12TrialEventKind.RawShot && tick == 510) raw510 = e.Value;
+                    if (e.Kind == V12TrialEventKind.BotSpawned && tick == 510) at510++;
+                    if (e.Kind == V12TrialEventKind.BotSpawned && tick == 518) at518++;
+                }
+            }
+            Assert.That(rewardTick, Is.EqualTo(150));
+            Assert.That(expiredTick, Is.EqualTo(511));
+            Assert.That(raw510, Is.EqualTo(2));
+            Assert.That(at510, Is.EqualTo(1));
+            Assert.That(at518, Is.EqualTo(1),
+                "The already-owned second robot cannot be dropped when x2 expires.");
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
         }
 
         [TestCase(2)]
@@ -403,6 +488,24 @@ namespace Swarmforge.Tests
                 Assert.That(a.StateHash, Is.EqualTo(b.StateHash), "Divergence on tick " + i);
                 Assert.That(a.EventHash, Is.EqualTo(b.EventHash));
             }
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void RestartWhileFollowerPending_DoesNotLeakDelayedEmission(int hp)
+        {
+            V12MatchConfig config = new V12MatchConfig(V12P2Presets.Create(hp));
+            var old = new V12TrialSimulation(config);
+            Assert.That(old.SubmitAim(0, 1, -950), Is.True);
+            for (int t = 0; t <= 180; t++) old.AdvanceOneTick();
+            Assert.That(old.Snapshot().BoostMultiplier, Is.EqualTo(2));
+            var fresh = new V12TrialSimulation(config);
+            for (int t = 0; t <= 188; t++) fresh.AdvanceOneTick();
+            Assert.That(fresh.Snapshot().RawShots, Is.EqualTo(7));
+            Assert.That(fresh.Snapshot().BotsProduced, Is.EqualTo(7),
+                "Restart must not reuse queued followers from the previous simulation.");
+            Assert.That(fresh.Snapshot().BoostMultiplier, Is.EqualTo(1));
+            Assert.That(fresh.Snapshot().BoxHP, Is.EqualTo(5));
         }
 
         [Test]

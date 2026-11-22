@@ -21,7 +21,6 @@ namespace Swarmforge.Presentation
         private readonly Stack<GameObject> enemyPool = new Stack<GameObject>();
         private readonly HashSet<long> seen = new HashSet<long>();
         private readonly List<long> cleanup = new List<long>();
-        private readonly V12BotVisualCohorts botCohorts = new V12BotVisualCohorts();
         private readonly Material botMaterial;
         private readonly Material enemyMaterial;
         private readonly Material destroyedMaterial;
@@ -114,13 +113,13 @@ namespace Swarmforge.Presentation
                     instance = Rent(pool, primitive, material, label);
                     active.Add(u.Id, instance);
                 }
-                // All green shots originate on the precise muzzle X/Z. Only
-                // actual coincident twin bots receive a persistent slot, and
-                // that slot eases outward as the pair travels forward.
-                // Red groups keep their existing stable ID formation.
+                // Green bots use ONLY authoritative X/Z. Sequential x2
+                // spacing is already produced by the 30Hz simulation;
+                // never fan out sideways or fake depth. Red enemies keep
+                // their previously approved ID-stable visual separation.
                 Vector2 visualOffset = greenBot ?
-                    V12FormationLayout.ForBot(u.Position, config.AttackPathLength,
-                        botCohorts.GetOrAssign(u, units)) : V12FormationLayout.ForId(u.Id);
+                    V12FormationLayout.ForBot(u.Position, config.AttackPathLength) :
+                    V12FormationLayout.ForId(u.Id);
                 instance.transform.position = new Vector3(WorldX(u.X) + visualOffset.x,
                     primitive == PrimitiveType.Capsule ? .39f : .49f,
                     WorldZ(u.Position) + visualOffset.y);
@@ -136,7 +135,6 @@ namespace Swarmforge.Presentation
                 old.SetActive(false);
                 pool.Push(old);
                 active.Remove(cleanup[i]);
-                if (greenBot) botCohorts.Forget(cleanup[i]);
             }
         }
 

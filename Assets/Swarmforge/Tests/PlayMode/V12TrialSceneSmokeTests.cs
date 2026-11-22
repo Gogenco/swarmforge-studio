@@ -28,6 +28,47 @@ namespace Swarmforge.Tests
         }
 
         [UnityTest]
+        public IEnumerator V12Trial_SceneAndDeterministicX2BothUseOneMuzzleLaneWithRealGap()
+        {
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            var entry = Object.FindFirstObjectByType<V12TrialEntryPoint>();
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(entry.CurrentSnapshot.CannonX, Is.EqualTo(0));
+            Assert.That(V12TrialSimulation.BoostFollowupDelayTicks, Is.EqualTo(8));
+
+            // PlayMode runtime simulation on the actual P2 scene profile;
+            // no frame-time-dependent visual tween can mask overlapping bots.
+            foreach (int hp in new[] { 2, 3 })
+            {
+                var sim = new V12TrialSimulation(new V12MatchConfig(V12P2Presets.Create(hp)));
+                Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
+                Assert.That(sim.SubmitAim(180, 2, 0), Is.True);
+                for (int tick = 0; tick <= 188; tick++) sim.AdvanceOneTick();
+                int count = 0, front = 0, back = 0;
+                foreach (V12TrialUnitView bot in sim.Snapshot().Bots)
+                    if (bot.X == 0)
+                    {
+                        if (count == 0) front = bot.Position;
+                        else if (count == 1) back = bot.Position;
+                        count++;
+                        Assert.That(V12FormationLayout.ForBot(bot.Position, 51000),
+                            Is.EqualTo(Vector2.zero), "Green bots cannot have lateral/fake depth offsets.");
+                    }
+                Assert.That(count, Is.EqualTo(2));
+                Assert.That(Mathf.Abs(front - back), Is.GreaterThanOrEqualTo(7 * 340),
+                    "The two real bots must be separated by actual authoritative forward distance.");
+                Assert.That(sim.Snapshot().BoxHP, Is.EqualTo(0));
+                Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(2));
+                Assert.That(GameObject.Find("V12_Trial_Camera"), Is.Not.Null);
+                Assert.That(GameObject.Find("X2_Destructible_Box"), Is.Not.Null);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator V12Trial_StandaloneSceneLoadsWithBoxAndCorrectHP()
         {
             SceneManager.LoadScene("V12_Trial");

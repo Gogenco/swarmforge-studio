@@ -10,6 +10,24 @@ namespace Swarmforge.Simulation
     /// </summary>
     public sealed class V12TrialSimulation
     {
+        // 8 sim ticks = 0.267s. At 340 fixed units/tick the preceding bot
+        // is already 7*340 units (0.84 world Z) ahead when its twin appears.
+        // Two actual bots share ONE captured aim lane; this is never VFX jitter.
+        public const int BoostFollowupDelayTicks = 8;
+
+        private readonly struct PendingFollowup
+        {
+            public readonly int DueTick;
+            public readonly int CapturedX;
+            public readonly bool BoxDirected;
+            public PendingFollowup(int dueTick, int capturedX, bool boxDirected)
+            {
+                DueTick = dueTick;
+                CapturedX = capturedX;
+                BoxDirected = boxDirected;
+            }
+        }
+
         private sealed class Bot
         {
             public long Id;
@@ -64,6 +82,9 @@ namespace Swarmforge.Simulation
         private readonly V12BoxBalance box;
         private readonly List<Bot> bots = new List<Bot>();
         private readonly List<Enemy> enemies = new List<Enemy>();
+        // Owned by THIS match. A restart creates a fresh queue; no global delay
+        // callbacks, coroutines, frame delta or Time.time can spawn robots.
+        private readonly List<PendingFollowup> pendingFollowups = new List<PendingFollowup>();
         private readonly Dictionary<int, List<AimCommand>> input = new Dictionary<int, List<AimCommand>>();
         private readonly List<V12TrialEvent> tickEvents = new List<V12TrialEvent>();
         private readonly List<V12TrialEvent> history = new List<V12TrialEvent>();
@@ -142,6 +163,9 @@ namespace Swarmforge.Simulation
                 Publish(boundary, boosts.HasActive ? V12TrialEventKind.BoostStarted : V12TrialEventKind.BoostExpired,
                     0, 0, boosts.ActiveMultiplier);
             ApplyCommands(tick, boundary);
+            // A committed second bot uses the aim X captured by its first
+            // shot, even if the cannon has moved or the bonus just expired.
+            EmitDueFollowups(tick, boundary);
             if (tick >= cfg.FirstShotTick && (tick - cfg.FirstShotTick) % cfg.ShotPeriodTicks == 0)
                 Fire(tick, boundary);
             SpawnWave(tick, boundary);
@@ -186,7 +210,12 @@ namespace Swarmforge.Simulation
             else if (fortressHp <= 0) outcome = MatchOutcome.Win;
             else if (tick + 1 >= cfg.MatchTicks) outcome = MatchOutcome.LoseTimeout;
             if (outcome != MatchOutcome.Playing)
+            {
+                // Terminal state forbids further emissions. Do not carry a
+                // pending shot into Restart or try to fire after match end.
+                pendingFollowups.Clear();
                 Publish(new V12TickTime(tick), V12TrialEventKind.MatchEnded, 0, 0, (int)outcome);
+            }
             snapshot = MakeSnapshot(tick);
             return snapshot;
         }
@@ -208,33 +237,65 @@ namespace Swarmforge.Simulation
 
         private void Fire(int tick, V12TickTime at)
         {
-            bool targetsBox = boxHp > 0 && Math.Abs(cannonX - box.X) <= box.Radius;
+            int capturedX = cannonX;
+            bool targetsBox = boxHp > 0 && Math.Abs(capturedX - box.X) <= box.Radius;
             int copies = boosts.ActiveMultiplier;
+            // Count the committed but not-yet-visible follower as real
+            // incoming damage, to preserve one-active/one-queued reward
+            // reservation and prevent duplicate terminal promises.
             if (targetsBox && (boosts.OccupiedSlots >= 2 ||
                 (!boxPromise && CountApproachingBox() + copies >= boxHp && !boosts.CanReserve)))
             {
-                Publish(at, V12TrialEventKind.ShotSuppressed, 0, 0, cannonX);
+                Publish(at, V12TrialEventKind.ShotSuppressed, 0, 0, capturedX);
                 return;
             }
             if (targetsBox && !boxPromise && CountApproachingBox() + copies >= boxHp)
             {
-                if (!boosts.ReserveTerminal()) throw new InvalidOperationException("Terminal entitlement not available before dispatch.");
+                if (!boosts.ReserveTerminal())
+                    throw new InvalidOperationException("Terminal entitlement not available before dispatch.");
                 boxPromise = true;
             }
             rawShots++;
             Publish(at, V12TrialEventKind.RawShot, 0, 0, copies);
-            for (int i = 0; i < copies; i++)
+            SpawnBot(tick, at, capturedX, targetsBox);
+            if (copies == 2)
             {
-                var bot = new Bot
-                {
-                    Id = nextUnitId++, X = cannonX, BornTick = tick,
-                    HP = cfg.MiniBotMaxHP, MaxHP = cfg.MiniBotMaxHP,
-                    Z = 0, BoxDirected = targetsBox
-                };
-                bots.Add(bot);
-                botsProduced++;
-                Publish(at, V12TrialEventKind.BotSpawned, bot.Id, 0, bot.HP);
+                // This is the SECOND REAL MiniBot, not a display duplicate.
+                // Preserve shot ownership/aim/box intent through movement,
+                // boost expiry and later player input. No side offsets.
+                pendingFollowups.Add(new PendingFollowup(
+                    tick + BoostFollowupDelayTicks, capturedX, targetsBox));
             }
+        }
+
+        private void EmitDueFollowups(int tick, V12TickTime at)
+        {
+            for (int i = 0; i < pendingFollowups.Count;)
+            {
+                PendingFollowup pending = pendingFollowups[i];
+                if (pending.DueTick > tick) { i++; continue; }
+                if (pending.DueTick != tick)
+                    throw new InvalidOperationException("Missed deterministic followup emission tick.");
+                pendingFollowups.RemoveAt(i);
+                // If the chest was already destroyed by the first bot,
+                // convert this promised follower into a normal ATTACK bot,
+                // just like any previously launched box-directed survivors.
+                SpawnBot(tick, at, pending.CapturedX,
+                    pending.BoxDirected && boxHp > 0);
+            }
+        }
+
+        private void SpawnBot(int tick, V12TickTime at, int capturedX, bool targetsBox)
+        {
+            var bot = new Bot
+            {
+                Id = nextUnitId++, X = capturedX, BornTick = tick,
+                HP = cfg.MiniBotMaxHP, MaxHP = cfg.MiniBotMaxHP,
+                Z = 0, BoxDirected = targetsBox
+            };
+            bots.Add(bot);
+            botsProduced++;
+            Publish(at, V12TrialEventKind.BotSpawned, bot.Id, 0, bot.HP);
         }
 
         private void SpawnWave(int tick, V12TickTime at)
@@ -581,6 +642,8 @@ namespace Swarmforge.Simulation
             int count = 0;
             for (int i = 0; i < bots.Count; i++)
                 if (bots[i].Alive && bots[i].BoxDirected) count++;
+            for (int i = 0; i < pendingFollowups.Count; i++)
+                if (pendingFollowups[i].BoxDirected) count++;
             return count;
         }
 
@@ -633,6 +696,16 @@ namespace Swarmforge.Simulation
             Hash(ref hash, (int)outcome);
             Hash(ref hash, eventHash);
             Hash(ref hash, commandHash);
+            // Pending followers are authoritative scheduled entities. Include
+            // their immutable capture in replay/state hashes BEFORE emission.
+            Hash(ref hash, pendingFollowups.Count);
+            for (int i = 0; i < pendingFollowups.Count; i++)
+            {
+                PendingFollowup pending = pendingFollowups[i];
+                Hash(ref hash, pending.DueTick);
+                Hash(ref hash, pending.CapturedX);
+                Hash(ref hash, pending.BoxDirected ? 1 : 0);
+            }
             for (int i = 0; i < bots.Count; i++)
             {
                 Bot b = bots[i];

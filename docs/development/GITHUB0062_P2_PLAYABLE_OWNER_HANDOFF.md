@@ -1,3 +1,18 @@
+# OWNER P7 — SINGLE-FILE ×2 CANNON (2026-11-22)
+
+**Stage 1 / existing Draft PR #26. New Unity runtime verification required.** Owner verified central combat and the side x2 chest in Unity but rejected the prior green fan-out: two boosted MiniBots must really fire consecutively on the SAME aim line.
+
+- **Authoritative 30Hz change:** A raw boosted shot still represents two real bots. The first spawns at tick `t`, and its already-committed second bot is emitted at `t+8` (`V12TrialSimulation.BoostFollowupDelayTicks`). Both start at `Z=0` at their own spawn time, with identical captured `X`. The gap is real movement distance: at the second spawn instant the first has advanced 7 simulation steps, about `7*340/51000*18 = 0.84` world Z; by the rendered end of that tick, approximately `0.96` units. No visual-only forward teleport, sideways fan-out, false clone, real-time callback, or randomized drift.
+- **Aim changes:** The second bot carries the original shot's X and side-box intent. Moving the cannon in the intervening 8 ticks cannot redirect it to another lane. The next raw shot uses the player's current aim as usual.
+- **Boost expiry:** A committed second bot is still emitted on its scheduled tick even if the x2 buff expires during the gap. This preserves two per boosted raw shot. Nothing spawns after a terminal match. New simulation on Restart has a fresh empty follower queue.
+- **Box entitlement/replay:** The pending second bot counts toward incoming hits when reserving the unique x2 chest reward. The pending tick/X/target intent are included in the deterministic snapshot hash. Its actual `BotSpawned` event occurs only when physically spawned. The separate `RawShot` still has `Value=2` at `t`, and no extra raw shot is created at `t+8`.
+- **Rendering:** ALL green bots use simulation X/Z directly (`V12FormationLayout.ForBot` returns zero). Red enemy `ForId` remains unchanged. No Unity scene, material, game economy or VS-01 files are modified.
+- **Preserved trial parameters:** 30Hz, x1 one robot each 30 ticks, active x2 two robots per raw shot (staggered 8 ticks), box HP5 at X-950, x2 duration 360 ticks, MiniBot HP2/HP3, enemy group four on central X0, C1-C6 HP/cooldowns/retaliation, FortressHP40/BaseHP3, same 60s terminal rules, Replay Hash and Restart.
+- **Unity tests authored, NOT RUN by Developer:** EditMode x1/x2 spawn schedule, 8-tick real gap, original aim despite move, follower emitted past boost expiry, persistent 24 spawned robots from 12 active x2 raw shots, HP2/HP3, restart queue isolation, deterministic replay, preserved red layout. PlayMode trial scene smoke now includes real two-bot timeline and same-line geometry. Superseded older fan-out assertions have been updated instead of disabled.
+- **Owner/QA:** Open `Assets/Swarmforge/Scenes/V12_Trial.unity` in Unity 6000.3.28f1, Game view portrait 9:16. Open side HP5 chest, wait for x2; see two real bots emerge from one muzzle on one X line, one after the other, with a visible front-back gap and no lateral offset. Change aim during the gap, verify follower stays on first shot's X. Check actual center enemy HP/damage, red separation, x1→x2→x1 rate, 12s duration, HP2/HP3, win/lose/restart, edit/play suites, Console. Keep old `Battle.unity` intact. **Owner P7 acceptance depends on actual Unity evidence; not tested here.**
+
+---
+
 # GITHUB-006.2 — P2 isolated playable trial candidate
 
 **Status:** SOURCE CANDIDATE / UNITY VALIDATION REQUIRED. A local environment without Unity Editor or C# toolchain cannot certify a compiled or playable build. The Owner must run the newly added scene and tests before labeling P2 READY.
