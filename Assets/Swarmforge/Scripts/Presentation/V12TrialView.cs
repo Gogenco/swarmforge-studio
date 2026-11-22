@@ -88,39 +88,70 @@ namespace Swarmforge.Presentation
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 11.75f;
-            camera.transform.position = new Vector3(0, 27f, 8f);
-            camera.transform.rotation = Quaternion.Euler(85f, 0, 0);
+            // Portrait-first cinematic overview. Lower angle exposes new P9
+            // bevels, vertical robot silhouettes and authored side scenery.
+            // Horizontal framing is widened automatically on tall devices,
+            // never cropping the one left chest or central combat corridor.
+            camera.orthographicSize = 12.2f;
+            camera.transform.position = new Vector3(0f, 24f, -2.7f);
+            camera.transform.rotation = Quaternion.Euler(64f, 0f, 0f);
+            UpdateCameraFraming();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(.04f, .065f, .12f);
             var lightObject = new GameObject("V12_Trial_Light");
             lightObject.transform.SetParent(root);
-            lightObject.transform.rotation = Quaternion.Euler(43f, -30f, 0f);
+            lightObject.transform.rotation = Quaternion.Euler(49f, -34f, 0f);
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1.45f;
+            light.color = new Color(1f, .94f, .88f);
+            light.intensity = 1.4f;
+            light.shadows = LightShadows.None; // mobile-friendly, no realtime shadow maps
+
+            // Subtle opposing fill makes the Lit palette and side facets
+            // readable without adding costly point lights or gameplay VFX.
+            var fillObject = new GameObject("V12_Trial_Cool_Fill");
+            fillObject.transform.SetParent(root);
+            fillObject.transform.rotation = Quaternion.Euler(32f, 142f, 0f);
+            var fill = fillObject.AddComponent<Light>();
+            fill.type = LightType.Directional;
+            fill.color = new Color(.36f, .65f, 1f);
+            fill.intensity = .42f;
+            fill.shadows = LightShadows.None;
         }
 
-        private const float CannonModelScale = .65f;
-        private const float Stage2MuzzleBackOffset = .935f * CannonModelScale;
+        private const float CannonModelScale = .84f;
+        // P9 model's authored front muzzle ends near +0.9535 local Z.
+        // The root stays negative by this much; shot birth remains world Z=0.
+        private const float Stage2MuzzleBackOffset = .9535f * CannonModelScale;
+        private const float PortraitMinHalfHeight = 12.2f;
+        private const float ArenaHalfWidthWithMargin = 6.8f;
+
+        private void UpdateCameraFraming()
+        {
+            // The authored P9 arena extends to X +/-6.09. Fit it on 9:16
+            // and taller phones while keeping a consistent centered view.
+            camera.orthographicSize = Mathf.Max(PortraitMinHalfHeight,
+                ArenaHalfWidthWithMargin / Mathf.Max(.1f, camera.aspect));
+        }
 
         public Vector3 BoxLabelWorld()
         {
             V12BoxBalance b = config.Boxes[0];
-            return new Vector3(WorldX(b.X), 1.7f, WorldZ(b.Position));
+            return new Vector3(WorldX(b.X), hasNativeArt ? 1.85f : 1.7f, WorldZ(b.Position));
         }
 
         /// <summary>Screen-space projection of the *visible* cannon rail.</summary>
         public int AimFromScreenX(float screenX)
         {
-            float left = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMinX), .5f, -.35f)).x;
-            float right = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMaxX), .5f, -.35f)).x;
+            float left = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMinX), .5f, 0f)).x;
+            float right = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMaxX), .5f, 0f)).x;
             float t = Mathf.Clamp01((screenX - left) / Mathf.Max(1f, right - left));
             return Mathf.RoundToInt(Mathf.Lerp(config.CannonMinX, config.CannonMaxX, t));
         }
 
         public void Render(V12TrialSnapshot s)
         {
+            UpdateCameraFraming();
             cannon.transform.position = new Vector3(WorldX(s.CannonX),
                 hasNativeArt ? .02f : .63f,
                 hasNativeArt ? -Stage2MuzzleBackOffset : -.35f);
@@ -157,10 +188,10 @@ namespace Swarmforge.Presentation
                     V12FormationLayout.ForBot(u.Position, config.AttackPathLength) :
                     V12FormationLayout.ForId(u.Id);
                 instance.transform.position = new Vector3(WorldX(u.X) + visualOffset.x,
-                    hasNativeArt ? .045f : (greenBot ? .39f : .49f),
+                    hasNativeArt ? .012f : (greenBot ? .39f : .49f),
                     WorldZ(u.Position) + visualOffset.y);
                 instance.transform.localScale = hasNativeArt ?
-                    Vector3.one * (greenBot ? .42f : .48f) :
+                    Vector3.one * (greenBot ? .76f : .70f) :
                     greenBot ? new Vector3(.30f, .32f, .30f) :
                     new Vector3(.54f + .10f * (u.MaxHP - 1), .54f, .54f);
             }

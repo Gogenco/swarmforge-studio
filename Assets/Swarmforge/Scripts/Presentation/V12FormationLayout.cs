@@ -15,8 +15,8 @@ namespace Swarmforge.Presentation
         {
             if (unitId <= 0) throw new ArgumentOutOfRangeException(nameof(unitId));
             int slot = (int)((unitId - 1) % 4);
-            return new Vector2((slot & 1) == 0 ? -.52f : .52f,
-                slot < 2 ? -.45f : .45f);
+            return new Vector2((slot & 1) == 0 ? -.70f : .70f,
+                slot < 2 ? -.70f : .70f);
         }
 
         /// <summary>

@@ -37,8 +37,8 @@ namespace Swarmforge.Tests
             Assert.That(cannon.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
             Assert.That(chest.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
             Assert.That(friend.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
-            // Cannon local +Z .935 at native scale .65 ends at true shot Z=0.
-            float muzzleZ = cannon.transform.position.z + .935f * cannon.transform.localScale.z;
+            // Reworked P9 cannon local muzzle +Z .9535 still ends at true shot Z=0.
+            float muzzleZ = cannon.transform.position.z + .9535f * cannon.transform.localScale.z;
             Assert.That(Mathf.Abs(muzzleZ), Is.LessThan(.025f));
             Assert.That(Mathf.Abs(friend.transform.position.x - cannon.transform.position.x),
                 Is.LessThan(.0001f), "Green bot must appear from the same muzzle X without lateral fan-out.");
@@ -47,6 +47,41 @@ namespace Swarmforge.Tests
             Assert.That(entry.CurrentSnapshot.RawShots, Is.EqualTo(1));
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
             Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40));
+        }
+
+        [UnityTest]
+        public IEnumerator V12Trial_P9PortraitFramingAndHeroScalePreserveLogicalMuzzle()
+        {
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            var art = V12Stage2ArtCatalog.Load();
+            Assert.That(art, Is.Not.Null,
+                "Generate and Integrate P8 Art in Unity before Stage 2 acceptance tests.");
+            Assert.That(art.IsComplete, Is.True);
+            var cameraObject = GameObject.Find("V12_Trial_Camera");
+            var cannon = GameObject.Find("P2_Auto_Cannon");
+            var green = GameObject.Find("P2_MiniBot");
+            Assert.That(cameraObject, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(green, Is.Not.Null);
+            Camera cam = cameraObject.GetComponent<Camera>();
+            Assert.That(cam, Is.Not.Null);
+            Assert.That(cam.orthographic, Is.True);
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(60f, 67f),
+                "P9 art must expose 3D silhouettes rather than the P8 85-degree view.");
+            Assert.That(cam.orthographicSize, Is.GreaterThanOrEqualTo(12.2f));
+            Assert.That(cam.orthographicSize * (9f / 16f), Is.GreaterThan(6f),
+                "At 9:16 the full authored arena width needs room.");
+            Assert.That(green.transform.localScale.x, Is.InRange(.75f, .85f));
+            Assert.That(cannon.transform.localScale.x, Is.GreaterThanOrEqualTo(.8f));
+            Assert.That(Mathf.Abs(cannon.transform.position.z +
+                .9535f * cannon.transform.localScale.z), Is.LessThan(.025f));
+            Assert.That(Mathf.Abs(green.transform.position.x - cannon.transform.position.x),
+                Is.LessThan(.0001f), "P8 x2 and solo paths must remain at captured aim X.");
+            var fillLight = GameObject.Find("V12_Trial_Cool_Fill");
+            Assert.That(fillLight, Is.Not.Null);
+            Assert.That(fillLight.GetComponent<Light>().shadows, Is.EqualTo(LightShadows.None));
         }
 
         [UnityTest]

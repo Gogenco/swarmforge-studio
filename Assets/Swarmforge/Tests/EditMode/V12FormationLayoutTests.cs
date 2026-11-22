@@ -61,7 +61,7 @@ namespace Swarmforge.Tests
             {
                 Vector2 a = V12FormationLayout.ForId(id);
                 Vector2 b = V12FormationLayout.ForId(id + 1);
-                Assert.That(Vector2.Distance(a, b), Is.GreaterThanOrEqualTo(.88f));
+                Assert.That(Vector2.Distance(a, b), Is.GreaterThanOrEqualTo(1.39f));
             }
         }
 
@@ -71,11 +71,11 @@ namespace Swarmforge.Tests
             for (long a = 1; a <= 4; a++)
             {
                 Vector2 offset = V12FormationLayout.ForId(a);
-                Assert.That(Mathf.Abs(offset.x), Is.LessThanOrEqualTo(.52f));
-                Assert.That(Mathf.Abs(offset.y), Is.LessThanOrEqualTo(.45f));
+                Assert.That(Mathf.Abs(offset.x), Is.LessThanOrEqualTo(.70f));
+                Assert.That(Mathf.Abs(offset.y), Is.LessThanOrEqualTo(.70f));
                 for (long b = a + 1; b <= 4; b++)
                     Assert.That(Vector2.Distance(offset, V12FormationLayout.ForId(b)),
-                        Is.GreaterThanOrEqualTo(.88f));
+                        Is.GreaterThanOrEqualTo(1.39f));
             }
         }
 
