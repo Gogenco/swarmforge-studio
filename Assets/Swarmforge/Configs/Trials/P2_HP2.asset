@@ -40,7 +40,7 @@ MonoBehaviour:
       ContactCooldownTicks: 15
     Boxes:
     - Key: X2
-      X: -800
+      X: -950
       Position: 9000
       Radius: 450
       MaxHP: 5

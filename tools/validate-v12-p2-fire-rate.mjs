@@ -48,13 +48,13 @@ for (const name of [
     'Restart_NewSimulationResetsOnePerSecondScheduleAndReplayState',
     'Terminal_HighFortressAndTenBaseHp_ExpiresAsTimeoutAfterExactly1800Ticks',
     'Balance_CanonicalFortress40FitsOptimisticDamageBudget',
-    'CanonicalP2_BoxBoostDefendBothLanesThenAttack_ReachableVictory',
+    'CanonicalP2_SideBoxThenCentralGroupCombat_ReachableVictory',
     'Replay_IdenticalCommandsProduceIdenticalEventAndStateHashes',
     'Terminal_AllFourEnemiesBreachMeansDefeat',
     'Terminal_FortressZeroMeansVictory'])
     assert.ok(tests.includes(name), `Missing P2 regression ${name}`);
 for (const command of [
-    'SubmitAim(1, 1, -800)', 'SubmitAim(181, 2, 800)', 'SubmitAim(211, 3, 0)',
+    'SubmitAim(1, 1, -950)', 'SubmitAim(151, 2, 0)',
     'terminal.Outcome, Is.EqualTo(MatchOutcome.Win)',
     'terminal.EnemiesKilled, Is.EqualTo(4)',
     'terminal.BaseHP, Is.EqualTo(3)'])

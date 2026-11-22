@@ -24,7 +24,7 @@ namespace Swarmforge.Simulation
             };
             value.Boxes = new[]
             {
-                new V12BoxBalance("X2", -800, 9000, 450, 5, 2, 360)
+                new V12BoxBalance("X2", -950, 9000, 450, 5, 2, 360)
             };
             value.Waves = new[]
             {

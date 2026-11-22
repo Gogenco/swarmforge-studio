@@ -95,5 +95,33 @@ namespace Swarmforge.Tests
             entry.ResumeFromSuspend();
             Assert.That(entry.IsSuspended, Is.False);
         }
+
+        [UnityTest]
+        public IEnumerator V12Trial_SideBoxVisualIsClearOfCentralCombatAndSceneKeepsOneChest()
+        {
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            var entry = Object.FindFirstObjectByType<V12TrialEntryPoint>();
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            GameObject rewardBox = GameObject.Find("X2_Destructible_Box");
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(rewardBox, Is.Not.Null);
+            Assert.That(rewardBox.transform.position.x,
+                Is.LessThan(cannon.transform.position.x - 2.5f),
+                "The functional chest must be clearly to the left of center in the real 3D scene.");
+            Assert.That(Object.FindObjectsByType<V12TrialEntryPoint>(FindObjectsSortMode.None).Length,
+                Is.EqualTo(1));
+            Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+            // The simulated enemy X is authoritative, independent of any
+            // red visual formation and without waiting six wall-clock seconds.
+            var sim = new V12TrialSimulation(new V12MatchConfig(V12P2Presets.Create(2)));
+            for (int tick = 0; tick <= 180; tick++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().Enemies.Count, Is.EqualTo(4));
+            foreach (V12TrialUnitView enemy in sim.Snapshot().Enemies)
+                Assert.That(enemy.X, Is.EqualTo(0));
+        }
+
     }
 }

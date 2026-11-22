@@ -100,6 +100,14 @@ namespace Swarmforge.Simulation
                 cfg.Boxes[0].DurationTicks != 360 || cfg.Waves.Length != 1 ||
                 cfg.MiniBotMaxHP < 2 || cfg.MiniBotMaxHP > 3)
                 throw new ArgumentException("P2 only permits the 60s/one X2 HP5/12s/one-group HP2-or-HP3 trial.");
+            // A single authoritative P2 central combat corridor is separate
+            // from the one side reward box, even when both hit radii are used.
+            // Without this guard an Inspector edit can silently restore the
+            // previous impossible-to-read overlapping combat/box targeting.
+            int centerX = cfg.CannonMinX + (cfg.CannonMaxX - cfg.CannonMinX) / 2;
+            if (Math.Abs((long)cfg.Boxes[0].X - centerX) <=
+                (long)cfg.ContactRadius + cfg.Boxes[0].Radius)
+                throw new ArgumentException("P2 side box overlaps central enemy combat corridor.");
             box = cfg.Boxes[0];
             boxHp = box.MaxHP;
             baseHp = cfg.BaseHP;
@@ -231,6 +239,11 @@ namespace Swarmforge.Simulation
 
         private void SpawnWave(int tick, V12TickTime at)
         {
+            // Wave lane -1/+1 still identifies authored subgroups and stable
+            // spawn ordering. P2 enemies converge on ONE central physical
+            // combat corridor; red model separation is presentation-only.
+            // Green shots aimed at the same center X can now truly collide.
+            int centerX = cfg.CannonMinX + (cfg.CannonMaxX - cfg.CannonMinX) / 2;
             for (int w = 0; w < cfg.Waves.Length; w++)
             {
                 V12WaveBalance wave = cfg.Waves[w];
@@ -245,7 +258,7 @@ namespace Swarmforge.Simulation
                     {
                         var enemy = new Enemy
                         {
-                            Id = nextUnitId++, X = spawn.Lane * 800,
+                            Id = nextUnitId++, X = centerX,
                             HP = type.MaxHP, MaxHP = type.MaxHP, Damage = type.Damage,
                             Speed = type.SpeedPerTick, Cooldown = type.ContactCooldownTicks,
                             BornTick = tick, Z = cfg.EnemyPathLength

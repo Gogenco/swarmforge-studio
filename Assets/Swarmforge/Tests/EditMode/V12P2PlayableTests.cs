@@ -51,7 +51,7 @@ namespace Swarmforge.Tests
         {
             V12TrialSimulation baseline = NewTrial();
             V12TrialSimulation aimed = NewTrial();
-            Assert.That(aimed.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(aimed.SubmitAim(0, 1, -950), Is.True);
             baseline.AdvanceOneTick();
             aimed.AdvanceOneTick();
             Assert.That(aimed.Snapshot().ConfigHash, Is.EqualTo(baseline.Snapshot().ConfigHash));
@@ -100,7 +100,7 @@ namespace Swarmforge.Tests
             V12BalanceDefinition balance = V12P2Presets.Create(2);
             balance.BaseHP = 10;
             var sim = new V12TrialSimulation(new V12MatchConfig(balance));
-            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
             int rewardTick = -1;
             for (int t = 0; t < 240 && rewardTick < 0; t++)
             {
@@ -159,7 +159,7 @@ namespace Swarmforge.Tests
             V12BalanceDefinition balance = V12P2Presets.Create(hp);
             balance.BaseHP = 10;
             var sim = new V12TrialSimulation(new V12MatchConfig(balance));
-            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
             int rewardTick = -1, activationTick = -1, expiryTick = -1;
             int boostedShots = 0, boostedBots = 0;
             for (int tick = 0; tick <= 510; tick++)
@@ -265,12 +265,12 @@ namespace Swarmforge.Tests
         public void Combat_CollisionCommitsBotAndEnemyPreHpDamage()
         {
             V12BalanceDefinition config = V12P2Presets.Create(2);
-            config.Boxes[0] = new V12BoxBalance("X2", 800, 9000, 450, 5, 2, 360);
+            config.Boxes[0] = new V12BoxBalance("X2", 950, 9000, 450, 5, 2, 360);
             config.Waves[0] = new V12WaveBalance(1, 0, new[] { new V12WaveSpawn("SCOUT", -1, 1) });
             config.EnemyPathLength = 1800;
             config.EnemyTypes[0] = new V12EnemyBalance("SCOUT", 1, 1, 230, 15);
             var sim = new V12TrialSimulation(new V12MatchConfig(config));
-            Assert.That(sim.SubmitAim(0, 1, -800), Is.True);
+            Assert.That(sim.SubmitAim(0, 1, 0), Is.True);
             for (int t = 0; t < 11; t++) sim.AdvanceOneTick();
             bool botHit = false, enemyHit = false, destroyed = false;
             foreach (V12TrialEvent e in sim.History)
@@ -296,18 +296,18 @@ namespace Swarmforge.Tests
 
         [TestCase(2)]
         [TestCase(3)]
-        public void CanonicalP2_BoxBoostDefendBothLanesThenAttack_ReachableVictory(int hp)
+        public void CanonicalP2_SideBoxThenCentralGroupCombat_ReachableVictory(int hp)
         {
             // Real P2 HP/HP3, 40HP fortress, base HP3, four scouts, all
             // approved clocks/box rules. Imitate scene Start(): the first
             // automatic tick-0 shot is fired before the player can drag.
             var sim = NewTrial(hp);
             sim.AdvanceOneTick();
-            Assert.That(sim.SubmitAim(1, 1, -800), Is.True);
-            // Five left-lane box shots: ticks 30/60/90/120/150. The reward
-            // activates on tick 177. Two real x2 bots defend each enemy lane.
-            Assert.That(sim.SubmitAim(181, 2, 800), Is.True);
-            Assert.That(sim.SubmitAim(211, 3, 0), Is.True);
+            Assert.That(sim.SubmitAim(1, 1, -950), Is.True);
+            // Five intentional SIDE box shots on ticks 30/60/90/120/150.
+            // The reward activates on tick 177; redirect immediately after
+            // the last box shot, before the simultaneous center enemy wave.
+            Assert.That(sim.SubmitAim(151, 2, 0), Is.True);
 
             while (!sim.IsTerminal && sim.NextTick < 1800) sim.AdvanceOneTick();
             V12TrialSnapshot terminal = sim.Snapshot();
@@ -319,7 +319,7 @@ namespace Swarmforge.Tests
             Assert.That(terminal.WaveGroupsSpawned, Is.EqualTo(1));
             Assert.That(terminal.EnemiesSpawned, Is.EqualTo(4));
             Assert.That(terminal.EnemiesKilled, Is.EqualTo(4),
-                "Both red pairs should be defeated, not merely bypassed.");
+                "All four central-corridor enemies must be defeated, not bypassed.");
             Assert.That(terminal.BaseHP, Is.EqualTo(3), "Both lanes must actually be defended.");
             Assert.That(terminal.FortressHP, Is.EqualTo(0));
             int boostedShots = 0;
@@ -333,6 +333,9 @@ namespace Swarmforge.Tests
         public void Terminal_AllFourEnemiesBreachMeansDefeat(int hp)
         {
             var sim = NewTrial(hp);
+            // Deliberately avoid central combat and the left reward box so
+            // all four grouped enemies can still breach (LoseBase).
+            Assert.That(sim.SubmitAim(0, 1, 950), Is.True);
             for (int i = 0; i < 520 && !sim.IsTerminal; i++) sim.AdvanceOneTick();
             Assert.That(sim.Snapshot().Outcome, Is.EqualTo(MatchOutcome.LoseBase));
         }
@@ -361,7 +364,7 @@ namespace Swarmforge.Tests
         public void Balance_CanonicalFortress40FitsOptimisticDamageBudget(int hp)
         {
             // The optimistic bound is a necessary-but-not-sufficient test;
-            // CanonicalP2_BoxBoostDefendBothLanesThenAttack_ReachableVictory
+            // CanonicalP2_SideBoxThenCentralGroupCombat_ReachableVictory
             // also checks a legal deterministic path with actual combat.
             V12BalanceDefinition balance = V12P2Presets.Create(hp);
             int movementTicks = (balance.AttackPathLength + balance.MiniBotSpeedPerTick - 1) /
@@ -382,10 +385,10 @@ namespace Swarmforge.Tests
         public void Replay_IdenticalCommandsProduceIdenticalEventAndStateHashes()
         {
             V12TrialSimulation left = NewTrial(3), right = NewTrial(3);
-            Assert.That(left.SubmitAim(0, 1, -800), Is.True);
-            Assert.That(right.SubmitAim(0, 1, -800), Is.True);
-            Assert.That(left.SubmitAim(240, 2, 800), Is.True);
-            Assert.That(right.SubmitAim(240, 2, 800), Is.True);
+            Assert.That(left.SubmitAim(0, 1, -950), Is.True);
+            Assert.That(right.SubmitAim(0, 1, -950), Is.True);
+            Assert.That(left.SubmitAim(240, 2, 0), Is.True);
+            Assert.That(right.SubmitAim(240, 2, 0), Is.True);
             for (int i = 0; i < 420 && !left.IsTerminal && !right.IsTerminal; i++)
             {
                 V12TrialSnapshot a = left.AdvanceOneTick();
@@ -405,5 +408,86 @@ namespace Swarmforge.Tests
             Assert.That(V12P2Presets.Create(2).Boxes.Length, Is.EqualTo(1));
             Assert.That(V12P2Presets.Create(2).FortressHP, Is.EqualTo(40));
         }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Geometry_CentralEnemyCorridorAndSideBoxCannotOverlap(int hp)
+        {
+            V12BalanceDefinition balance = V12P2Presets.Create(hp);
+            int centerX = balance.CannonMinX + (balance.CannonMaxX - balance.CannonMinX) / 2;
+            Assert.That(centerX, Is.EqualTo(0));
+            Assert.That(balance.Boxes.Length, Is.EqualTo(1), "No new reward boxes in Stage 1.");
+            Assert.That(balance.Boxes[0].X, Is.EqualTo(-950));
+            Assert.That(Math.Abs((long)balance.Boxes[0].X - centerX),
+                Is.GreaterThan((long)balance.Boxes[0].Radius + balance.ContactRadius),
+                "Center combat and side chest must have disjoint collision/aim bands.");
+            var sim = NewTrial(hp);
+            for (int tick = 0; tick <= 180; tick++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().EnemiesSpawned, Is.EqualTo(4));
+            Assert.That(sim.Snapshot().Enemies.Count, Is.EqualTo(4));
+            foreach (V12TrialUnitView enemy in sim.Snapshot().Enemies)
+                Assert.That(enemy.X, Is.EqualTo(centerX),
+                    "Every red enemy must really approach along central X, not just render there.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void CenterAimedMiniBots_FightCentralEnemies_WithRealDamageAndRetaliation(int hp)
+        {
+            var sim = NewTrial(hp); // cannon starts on the physical center X=0.
+            for (int tick = 0; tick < 360 && !sim.IsTerminal; tick++) sim.AdvanceOneTick();
+            bool hitEnemy = false, retaliated = false, enemyDefeated = false;
+            foreach (V12TrialEvent e in sim.History)
+            {
+                if (e.Kind == V12TrialEventKind.BotStruck) hitEnemy = true;
+                if (e.Kind == V12TrialEventKind.EnemyStruck) retaliated = true;
+                if (e.Kind == V12TrialEventKind.EnemyDestroyed) enemyDefeated = true;
+            }
+            Assert.That(hitEnemy, Is.True, "Central MiniBot must actually deal HP damage, not pass through red models.");
+            Assert.That(retaliated, Is.True, "Enemy retaliation must retain C1-C6 pre-HP batching.");
+            Assert.That(enemyDefeated, Is.True, "At least one real enemy must die after taking damage.");
+            Assert.That(sim.Snapshot().BoxHits, Is.EqualTo(0),
+                "Central combat must never accidentally consume the side box.");
+            Assert.That(sim.Snapshot().BoxHP, Is.EqualTo(5));
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void SideAim_FiveBoxHitsEarnBoostWithoutInterceptingCentralEnemies(int hp)
+        {
+            var sim = NewTrial(hp);
+            Assert.That(sim.SubmitAim(0, 1, -950), Is.True);
+            for (int tick = 0; tick < 175 && !sim.IsTerminal; tick++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().BoxHits, Is.EqualTo(5));
+            Assert.That(sim.Snapshot().BoxHP, Is.EqualTo(0));
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(2));
+            Assert.That(sim.Snapshot().EnemiesKilled, Is.EqualTo(0));
+            foreach (V12TrialEvent e in sim.History)
+                Assert.That(e.Kind, Is.Not.EqualTo(V12TrialEventKind.BotStruck),
+                    "Side-directed box robots must not be intercepted by center enemies.");
+        }
+
+        [TestCase(2)]
+        [TestCase(3)]
+        public void CenterAim_DoesNotDamageOrAwardSideBox(int hp)
+        {
+            var sim = NewTrial(hp);
+            for (int tick = 0; tick < 190 && !sim.IsTerminal; tick++) sim.AdvanceOneTick();
+            Assert.That(sim.Snapshot().BoxHits, Is.EqualTo(0));
+            Assert.That(sim.Snapshot().BoxHP, Is.EqualTo(5));
+            Assert.That(sim.Snapshot().BoostMultiplier, Is.EqualTo(1));
+            Assert.That(sim.Snapshot().QueuedMultiplier, Is.EqualTo(1));
+            foreach (V12TrialEvent e in sim.History)
+                Assert.That(e.Kind, Is.Not.EqualTo(V12TrialEventKind.BoxDamaged));
+        }
+
+        [Test]
+        public void InvalidOverlappingP2BoxGeometry_IsRejectedBeforeMatchStarts()
+        {
+            V12BalanceDefinition cfg = V12P2Presets.Create(2);
+            cfg.Boxes[0] = new V12BoxBalance("X2", -800, 9000, 450, 5, 2, 360);
+            Assert.Throws<ArgumentException>(() => new V12TrialSimulation(new V12MatchConfig(cfg)));
+        }
+
     }
 }
