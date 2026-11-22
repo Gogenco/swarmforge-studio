@@ -11,6 +11,45 @@ namespace Swarmforge.Tests
     public sealed class V12TrialSceneSmokeTests
     {
         [UnityTest]
+        public IEnumerator V12Trial_Stage2SevenNativePrefabsAreBoundWithoutChangingCombat()
+        {
+            // Artist-generated native Mesh/Material/Prefab assets must first be
+            // bound using SWARMFORGE > Stage 2 > Generate and Integrate P8 Art.
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            V12Stage2ArtCatalog art = V12Stage2ArtCatalog.Load();
+            Assert.That(art, Is.Not.Null, "Run Stage 2 Generate and Integrate P8 Art in Unity before tests.");
+            Assert.That(art.IsComplete, Is.True, "All seven actual Art Director prefabs must be assigned.");
+            GameObject arena = GameObject.Find("Trial_Art_Arena");
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            GameObject chest = GameObject.Find("X2_Destructible_Box");
+            GameObject friend = GameObject.Find("P2_MiniBot");
+            GameObject fortress = GameObject.Find("P2_Enemy_Fortress");
+            GameObject baseRoot = GameObject.Find("Player_Base");
+            Assert.That(arena, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(chest, Is.Not.Null);
+            Assert.That(friend, Is.Not.Null);
+            Assert.That(fortress, Is.Not.Null);
+            Assert.That(baseRoot, Is.Not.Null);
+            Assert.That(arena.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
+            Assert.That(cannon.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
+            Assert.That(chest.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
+            Assert.That(friend.GetComponentsInChildren<MeshFilter>().Length, Is.GreaterThan(0));
+            // Cannon local +Z .935 at native scale .65 ends at true shot Z=0.
+            float muzzleZ = cannon.transform.position.z + .935f * cannon.transform.localScale.z;
+            Assert.That(Mathf.Abs(muzzleZ), Is.LessThan(.025f));
+            Assert.That(Mathf.Abs(friend.transform.position.x - cannon.transform.position.x),
+                Is.LessThan(.0001f), "Green bot must appear from the same muzzle X without lateral fan-out.");
+            var entry = Object.FindFirstObjectByType<V12TrialEntryPoint>();
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(entry.CurrentSnapshot.RawShots, Is.EqualTo(1));
+            Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+            Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40));
+        }
+
+        [UnityTest]
         public IEnumerator V12Trial_FirstSoloMiniBotRendersAtExactCannonMuzzleX()
         {
             SceneManager.LoadScene("V12_Trial");

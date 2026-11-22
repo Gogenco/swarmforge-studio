@@ -13,6 +13,9 @@ namespace Swarmforge.Presentation
     internal sealed class V12TrialView
     {
         private readonly V12BalanceDefinition config;
+        private readonly V12Stage2ArtCatalog art;
+        private readonly Vector3 intactFortressScale;
+        private readonly bool hasNativeArt;
         private readonly Transform root;
         private readonly List<Material> ownedMaterials = new List<Material>();
         private readonly Dictionary<long, GameObject> activeBots = new Dictionary<long, GameObject>();
@@ -32,6 +35,10 @@ namespace Swarmforge.Presentation
         public V12TrialView(V12BalanceDefinition definition)
         {
             config = definition;
+            // A single Editor binder generates an asset catalog; gameplay is
+            // still fully playable as the original P8 greybox before binding.
+            art = V12Stage2ArtCatalog.Load();
+            hasNativeArt = art != null && art.IsComplete;
             root = new GameObject("V12_Trial_Presentation_Only").transform;
             var floorMaterial = MakeMaterial(new Color(.09f, .13f, .24f));
             var laneMaterial = MakeMaterial(new Color(.17f, .27f, .39f));
@@ -41,19 +48,40 @@ namespace Swarmforge.Presentation
             enemyMaterial = MakeMaterial(new Color(.96f, .25f, .36f));
             destroyedMaterial = MakeMaterial(new Color(.38f, .45f, .48f));
 
-            Block("Trial_Floor", floorMaterial, new Vector3(0, -.3f, 9f), new Vector3(8.3f, .35f, 22));
-            Block("Left_Lane", laneMaterial, new Vector3(-2.0f, -.08f, 9f), new Vector3(3.7f, .1f, 19.4f));
-            Block("Right_Lane", laneMaterial, new Vector3(2.0f, -.08f, 9f), new Vector3(3.7f, .1f, 19.4f));
-            Block("Center_Divider", borderMaterial, new Vector3(0, -.01f, 9f), new Vector3(.08f, .1f, 19));
-            Block("Player_Base", borderMaterial, new Vector3(0, .48f, -1.5f), new Vector3(5, 1f, .75f));
-            fortress = Block("P2_Enemy_Fortress", destroyedMaterial,
-                new Vector3(0, 1.15f, 18.35f), new Vector3(4.8f, 2.3f, .9f));
-            cannon = Block("P2_Auto_Cannon", botMaterial,
-                new Vector3(0, .63f, -.35f), new Vector3(.78f, 1.25f, .9f));
-            V12BoxBalance b = definition.Boxes[0];
-            box = Block("X2_Destructible_Box", boxMaterial,
-                new Vector3(WorldX(b.X), .74f, WorldZ(b.Position)),
-                new Vector3(1.3f, 1.3f, .9f));
+            if (hasNativeArt)
+            {
+                // Native ART arena contains the floor, lanes, center divider
+                // and boundaries. Do not keep duplicate cubes (z-fighting).
+                PlaceArt("Trial_Art_Arena", art.Arena, new Vector3(0f, 0f, 0f), Vector3.one);
+                PlaceArt("Player_Base", art.PlayerBase,
+                    new Vector3(0f, .015f, -1.5f), Vector3.one * .95f);
+                fortress = PlaceArt("P2_Enemy_Fortress", art.EnemyFortress,
+                    new Vector3(0f, .015f, 18.35f), Vector3.one * .90f);
+                // Author-authored cannon muzzle reaches local +Z=.935.
+                // Scale .65 and offset it back so local muzzle ends at Z=0.
+                cannon = PlaceArt("P2_Auto_Cannon", art.AutoCannon,
+                    new Vector3(0f, .02f, -Stage2MuzzleBackOffset), Vector3.one * CannonModelScale);
+                V12BoxBalance b = definition.Boxes[0];
+                box = PlaceArt("X2_Destructible_Box", art.X2Chest,
+                    new Vector3(WorldX(b.X), .015f, WorldZ(b.Position)), Vector3.one);
+            }
+            else
+            {
+                Block("Trial_Floor", floorMaterial, new Vector3(0, -.3f, 9f), new Vector3(8.3f, .35f, 22));
+                Block("Left_Lane", laneMaterial, new Vector3(-2.0f, -.08f, 9f), new Vector3(3.7f, .1f, 19.4f));
+                Block("Right_Lane", laneMaterial, new Vector3(2.0f, -.08f, 9f), new Vector3(3.7f, .1f, 19.4f));
+                Block("Center_Divider", borderMaterial, new Vector3(0, -.01f, 9f), new Vector3(.08f, .1f, 19));
+                Block("Player_Base", borderMaterial, new Vector3(0, .48f, -1.5f), new Vector3(5, 1f, .75f));
+                fortress = Block("P2_Enemy_Fortress", destroyedMaterial,
+                    new Vector3(0, 1.15f, 18.35f), new Vector3(4.8f, 2.3f, .9f));
+                cannon = Block("P2_Auto_Cannon", botMaterial,
+                    new Vector3(0, .63f, -.35f), new Vector3(.78f, 1.25f, .9f));
+                V12BoxBalance b = definition.Boxes[0];
+                box = Block("X2_Destructible_Box", boxMaterial,
+                    new Vector3(WorldX(b.X), .74f, WorldZ(b.Position)),
+                    new Vector3(1.3f, 1.3f, .9f));
+            }
+            intactFortressScale = fortress.transform.localScale;
 
             var cameraObject = new GameObject("V12_Trial_Camera");
             cameraObject.transform.SetParent(root);
@@ -73,6 +101,9 @@ namespace Swarmforge.Presentation
             light.intensity = 1.45f;
         }
 
+        private const float CannonModelScale = .65f;
+        private const float Stage2MuzzleBackOffset = .935f * CannonModelScale;
+
         public Vector3 BoxLabelWorld()
         {
             V12BoxBalance b = config.Boxes[0];
@@ -90,10 +121,14 @@ namespace Swarmforge.Presentation
 
         public void Render(V12TrialSnapshot s)
         {
-            cannon.transform.position = new Vector3(WorldX(s.CannonX), .63f, -.35f);
+            cannon.transform.position = new Vector3(WorldX(s.CannonX),
+                hasNativeArt ? .02f : .63f,
+                hasNativeArt ? -Stage2MuzzleBackOffset : -.35f);
             box.SetActive(s.BoxHP > 0);
-            if (s.FortressHP <= 0) fortress.transform.localScale = new Vector3(4.8f, .4f, .9f);
-            else fortress.transform.localScale = new Vector3(4.8f, 2.3f, .9f);
+            // Both models and legacy cube use the same sim-driven fortress state.
+            fortress.transform.localScale = s.FortressHP <= 0 ?
+                new Vector3(intactFortressScale.x, intactFortressScale.y * .174f, intactFortressScale.z) :
+                intactFortressScale;
             ShowUnits(s.Bots, activeBots, botPool, PrimitiveType.Capsule, botMaterial, "P2_MiniBot", 100, true);
             ShowUnits(s.Enemies, activeEnemies, enemyPool, PrimitiveType.Sphere, enemyMaterial, "P2_Enemy", 100, false);
         }
@@ -110,7 +145,8 @@ namespace Swarmforge.Presentation
                 seen.Add(u.Id);
                 if (!active.TryGetValue(u.Id, out GameObject instance))
                 {
-                    instance = Rent(pool, primitive, material, label);
+                    GameObject nativePrefab = hasNativeArt ? (greenBot ? art.FriendlyMiniBot : art.RedEnemyRobot) : null;
+                    instance = Rent(pool, primitive, material, label, nativePrefab);
                     active.Add(u.Id, instance);
                 }
                 // Green bots use ONLY authoritative X/Z. Sequential x2
@@ -121,10 +157,11 @@ namespace Swarmforge.Presentation
                     V12FormationLayout.ForBot(u.Position, config.AttackPathLength) :
                     V12FormationLayout.ForId(u.Id);
                 instance.transform.position = new Vector3(WorldX(u.X) + visualOffset.x,
-                    primitive == PrimitiveType.Capsule ? .39f : .49f,
+                    hasNativeArt ? .045f : (greenBot ? .39f : .49f),
                     WorldZ(u.Position) + visualOffset.y);
-                instance.transform.localScale = primitive == PrimitiveType.Capsule ?
-                    new Vector3(.30f, .32f, .30f) :
+                instance.transform.localScale = hasNativeArt ?
+                    Vector3.one * (greenBot ? .42f : .48f) :
+                    greenBot ? new Vector3(.30f, .32f, .30f) :
                     new Vector3(.54f + .10f * (u.MaxHP - 1), .54f, .54f);
             }
             cleanup.Clear();
@@ -138,15 +175,36 @@ namespace Swarmforge.Presentation
             }
         }
 
-        private GameObject Rent(Stack<GameObject> pool, PrimitiveType primitive, Material material, string label)
+        private GameObject Rent(Stack<GameObject> pool, PrimitiveType primitive,
+            Material material, string label, GameObject prefab)
         {
-            GameObject go = pool.Count == 0 ? GameObject.CreatePrimitive(primitive) : pool.Pop();
+            GameObject go;
+            if (pool.Count != 0) go = pool.Pop();
+            else if (prefab != null) go = Object.Instantiate(prefab, root);
+            else go = GameObject.CreatePrimitive(primitive);
             go.name = label;
             go.transform.SetParent(root);
-            go.GetComponent<Renderer>().sharedMaterial = material;
-            Collider collider = go.GetComponent<Collider>();
-            if (collider != null) collider.enabled = false;
+            // Native prefabs own their mesh renderers/materials on children.
+            // Only change the root renderer for the primitive fallback.
+            if (prefab == null)
+            {
+                Renderer renderer = go.GetComponent<Renderer>();
+                if (renderer != null) renderer.sharedMaterial = material;
+            }
+            foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
+                collider.enabled = false;
             go.SetActive(true);
+            return go;
+        }
+
+        private GameObject PlaceArt(string name, GameObject prefab, Vector3 position, Vector3 scale)
+        {
+            GameObject go = Object.Instantiate(prefab, root);
+            go.name = name;
+            go.transform.position = position;
+            go.transform.localScale = scale;
+            foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
+                collider.enabled = false;
             return go;
         }
 
