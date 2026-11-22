@@ -1,217 +1,290 @@
-# SWARMFORGE Stage 2 OBJ/MTL palette; color in linear-independent authored sRGB values
-# Unity URP material assignment also supported by optional Editor helper.
+# SWARMFORGE P9 STAGE2 ART REWORK: material definitions (RGB sRGB)
+## Unity Editor importer generates URP Lit variants and static emissive surfaces.
 newmtl Mint
-Ka 0.0216 0.1092 0.0696
-Kd 0.18 0.91 0.58
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0178 0.1106 0.0739
+Kd 0.1373 0.851 0.5686
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl MintLight
-Ka 0.0648 0.12 0.0936
-Kd 0.54 1 0.78
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0897 0.13 0.1142
+Kd 0.6902 1 0.8784
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl MintDark
-Ka 0.0042 0.0408 0.0324
-Kd 0.035 0.34 0.27
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0066 0.0444 0.0372
+Kd 0.051 0.3412 0.2863
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl MintEdge
-Ka 0.0054 0.0744 0.0588
-Kd 0.045 0.62 0.49
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0051 0.0805 0.0637
+Kd 0.0392 0.6196 0.4902
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Red
-Ka 0.1104 0.0168 0.0252
-Kd 0.92 0.14 0.21
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.1167 0.025 0.0387
+Kd 0.898 0.1922 0.298
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl RedLight
-Ka 0.12 0.0516 0.0444
-Kd 1 0.43 0.37
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.13 0.0698 0.054
+Kd 1 0.5373 0.4157
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl RedDark
-Ka 0.0468 0.0066 0.0144
-Kd 0.39 0.055 0.12
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0484 0.0107 0.0194
+Kd 0.3725 0.0824 0.149
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl RedEdge
-Ka 0.0852 0.009 0.0168
-Kd 0.71 0.075 0.14
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0943 0.0122 0.027
+Kd 0.7255 0.0941 0.2078
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Visor
-Ka 0.0144 0.1044 0.12
-Kd 0.12 0.87 1
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.052 0.1203 0.13
+Kd 0.4 0.9255 1
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl VisorRed
-Ka 0.12 0.0876 0.0384
-Kd 1 0.73 0.32
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.13 0.103 0.0612
+Kd 1 0.7922 0.4706
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Metal
-Ka 0.0588 0.0708 0.0792
-Kd 0.49 0.59 0.66
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0591 0.0724 0.0841
+Kd 0.4549 0.5569 0.6471
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl MetalLight
-Ka 0.096 0.1032 0.1056
-Kd 0.8 0.86 0.88
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.1035 0.1122 0.1167
+Kd 0.7961 0.8627 0.898
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl MetalDark
-Ka 0.0192 0.0276 0.0384
-Kd 0.16 0.23 0.32
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0189 0.026 0.0352
+Kd 0.1451 0.2 0.2706
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Gold
-Ka 0.12 0.0828 0.0192
-Kd 1 0.69 0.16
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.1254 0.0918 0.0306
+Kd 0.9647 0.7059 0.2353
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl GoldLight
-Ka 0.12 0.108 0.0516
-Kd 1 0.9 0.43
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.13 0.1188 0.0826
+Kd 1 0.9137 0.6353
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl GoldDark
-Ka 0.0576 0.0348 0.0066
-Kd 0.48 0.29 0.055
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0683 0.0408 0.0112
+Kd 0.5255 0.3137 0.0863
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Cyan
-Ka 0.0084 0.078 0.0984
-Kd 0.07 0.65 0.82
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0184 0.0958 0.1106
+Kd 0.1412 0.7373 0.851
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl CyanLight
-Ka 0.0576 0.1056 0.12
-Kd 0.48 0.88 1
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0724 0.1193 0.13
+Kd 0.5569 0.9176 1
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl BlueDark
-Ka 0.0066 0.0192 0.0372
-Kd 0.055 0.16 0.31
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0082 0.0194 0.0331
+Kd 0.0627 0.149 0.2549
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl BlueMid
-Ka 0.0132 0.0336 0.0504
-Kd 0.11 0.28 0.42
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0189 0.0408 0.054
+Kd 0.1451 0.3137 0.4157
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Floor
-Ka 0.0078 0.0126 0.0204
-Kd 0.065 0.105 0.17
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0082 0.0148 0.0245
+Kd 0.0627 0.1137 0.1882
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Path
-Ka 0.0156 0.0252 0.0348
-Kd 0.13 0.21 0.29
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0138 0.0255 0.0372
+Kd 0.1059 0.1961 0.2863
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl PathLight
-Ka 0.024 0.0384 0.0492
-Kd 0.2 0.32 0.41
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0214 0.0357 0.0469
+Kd 0.1647 0.2745 0.3608
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Edge
-Ka 0.0072 0.0528 0.066
-Kd 0.06 0.44 0.55
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0102 0.0622 0.0744
+Kd 0.0784 0.4784 0.5725
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Hazard
-Ka 0.108 0.0444 0.0216
-Kd 0.9 0.37 0.18
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.1183 0.0632 0.0291
+Kd 0.9098 0.4863 0.2235
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Stone
-Ka 0.0264 0.0336 0.0408
-Kd 0.22 0.28 0.34
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.026 0.0362 0.0474
+Kd 0.2 0.2784 0.3647
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
 
 newmtl Glass
-Ka 0.0132 0.0432 0.06
-Kd 0.11 0.36 0.5
-Ks 0.06 0.06 0.06
-Ns 25
-d 1.0
+Ka 0.0204 0.0438 0.0596
+Kd 0.1569 0.3373 0.4588
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
 illum 2
+
+newmtl Carbon
+Ka 0.0117 0.0178 0.025
+Kd 0.0902 0.1373 0.1922
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl Steel
+Ka 0.0423 0.0525 0.0617
+Kd 0.3255 0.4039 0.4745
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl GlowMint
+Ka 0.0617 0.13 0.106
+Kd 0.4745 1 0.8157
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl GlowRed
+Ka 0.13 0.0571 0.0535
+Kd 1 0.4392 0.4118
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl GlowGold
+Ka 0.13 0.1178 0.0749
+Kd 1 0.9059 0.5765
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl GlowBlue
+Ka 0.0596 0.1106 0.13
+Kd 0.4588 0.851 1
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl Shadow
+Ka 0.0051 0.0102 0.0184
+Kd 0.0392 0.0784 0.1412
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl White
+Ka 0.1127 0.1198 0.1244
+Kd 0.8667 0.9216 0.9569
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
+newmtl DarkRust
+Ka 0.0423 0.0199 0.0285
+Kd 0.3255 0.1529 0.2196
+Ks 0.24 0.24 0.24
+Ns 70
+d 1
+illum 2
+
