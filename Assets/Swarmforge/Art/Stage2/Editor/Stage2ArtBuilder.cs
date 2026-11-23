@@ -19,7 +19,7 @@ namespace Swarmforge.Art.Editor
         private const string Root = "Assets/Swarmforge/Art/Stage2";
         private const string Input = Root + "/Models/";
         private const string Output = Root + "/Generated/";
-        private const int AtlasSize = 8;
+        private const int AtlasSize = 16; // room for city/landscape material swatches
 
         private static readonly string[] Models =
         {
@@ -47,7 +47,44 @@ namespace Swarmforge.Art.Editor
             { "Steel", "#536779" }, { "GlowMint", "#79FFD0" },
             { "GlowRed", "#FF7069" }, { "GlowGold", "#FFE793" },
             { "GlowBlue", "#75D9FF" }, { "Shadow", "#0A1424" },
-            { "White", "#DDEBF4" }, { "DarkRust", "#532738" }
+            { "White", "#DDEBF4" }, { "DarkRust", "#532738" },
+            { "RoadAsphalt", "#303943" },
+            { "RoadPatches", "#3B4249" },
+            { "RoadMarking", "#DBDEE0" },
+            { "RoadYellow", "#EFC96A" },
+            { "CurbStone", "#9EA9B0" },
+            { "Pavement", "#AAB4B5" },
+            { "PavementDark", "#7C8C99" },
+            { "Grass", "#598B44" },
+            { "GrassDeep", "#3E6B35" },
+            { "GrassFresh", "#7AA64F" },
+            { "Bark", "#624735" },
+            { "LeafGreen", "#2E813F" },
+            { "LeafLight", "#67A949" },
+            { "LeafLime", "#A4C65A" },
+            { "LeafOrange", "#C66B35" },
+            { "LeafRed", "#AC4350" },
+            { "LeafPink", "#ED8EAA" },
+            { "LeafBlossom", "#F4BDD1" },
+            { "FlowerWhite", "#FFF0D2" },
+            { "FlowerYellow", "#FFD366" },
+            { "FlowerPurple", "#AB8BD0" },
+            { "FlowerPink", "#F1A1BD" },
+            { "CityConcrete", "#A6B4BE" },
+            { "CityConcreteDark", "#708493" },
+            { "CityFrame", "#445565" },
+            { "CityRoof", "#53616D" },
+            { "CityGlass", "#3C6F85" },
+            { "CityGlassDark", "#285063" },
+            { "CityGlassLight", "#6B9DB1" },
+            { "WindowWarm", "#E4BD7B" },
+            { "WindowCool", "#90BDD2" },
+            { "CafeWood", "#957358" },
+            { "CoffeeAwning", "#D6C4A4" },
+            { "ShadowGreen", "#355D3C" },
+            { "StreetLamp", "#FFDB97" },
+            { "TealBanner", "#247D86" },
+            { "RedBanner", "#8E3749" }
         };
 
         private sealed class MeshChunk
@@ -65,6 +102,22 @@ namespace Swarmforge.Art.Editor
                 UVs.Add(uv);
                 UVs.Add(uv);
                 UVs.Add(uv);
+                Triangles.Add(start);
+                Triangles.Add(start + 1);
+                Triangles.Add(start + 2);
+            }
+
+            // For real tiled city surfaces, use separate UVs for each vertex.
+            public void AddTriangle(Vector3 a, Vector3 b, Vector3 c,
+                Vector2 uvA, Vector2 uvB, Vector2 uvC)
+            {
+                int start = Vertices.Count;
+                Vertices.Add(a);
+                Vertices.Add(b);
+                Vertices.Add(c);
+                UVs.Add(uvA);
+                UVs.Add(uvB);
+                UVs.Add(uvC);
                 Triangles.Add(start);
                 Triangles.Add(start + 1);
                 Triangles.Add(start + 2);
@@ -92,9 +145,21 @@ namespace Swarmforge.Art.Editor
 
             Material surface = GetMaterial("P9_AtlasSurface", shader, palette, false);
             Material glow = GetMaterial("P9_AtlasGlow", shader, palette, true);
+            // Procedural, *saved* Unity Texture2D assets; not an image backdrop.
+            // They are mapped onto genuine 3D mesh faces in the OBJ geometry.
+            Material asphalt = GetMaterial("P10_Asphalt", shader,
+                GetCityTexture("P10_Asphalt", 128, 0), false);
+            Material grass = GetMaterial("P10_Grass", shader,
+                GetCityTexture("P10_Grass", 128, 1), false);
+            Material pavement = GetMaterial("P10_Pavement", shader,
+                GetCityTexture("P10_Pavement", 128, 2), false);
+            Material glass = GetMaterial("P10_CityGlass", shader,
+                GetCityTexture("P10_CityGlass", 128, 3), false);
             var materials = new Dictionary<string, Material>
             {
-                { "Surface", surface }, { "Glow", glow }
+                { "Surface", surface }, { "Glow", glow },
+                { "Asphalt", asphalt }, { "Grass", grass },
+                { "Pavement", pavement }, { "CityGlass", glass }
             };
 
             foreach (string name in Models)
@@ -160,6 +225,83 @@ namespace Swarmforge.Art.Editor
             return texture;
         }
 
+        /// <summary>
+        /// A deterministic editor-authored tiled texture (no external downloads).
+        /// 0 asphalt, 1 grass, 2 paving stone, 3 dark tinted window glass.
+        /// Written into Unity project as a real Texture2D .asset.
+        /// </summary>
+        private static Texture2D GetCityTexture(string name, int size, int kind)
+        {
+            string path = Output + "Materials/" + name + "_Texture.asset";
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            bool create = tex == null;
+            if (create) tex = new Texture2D(size, size, TextureFormat.RGBA32, true, false);
+            if (tex.width != size || tex.height != size)
+                throw new InvalidOperationException("Unexpected city texture resolution: " + path);
+            tex.name = name + "_Texture";
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Trilinear;
+            tex.anisoLevel = 2;
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    uint h = DeterministicHash(x, y, 17 + kind * 31);
+                    int n = (int)(h & 31) - 15;
+                    int r, g, b;
+                    if (kind == 0) // asphalts / tiny pebble flecks
+                    {
+                        int grain = n / 2 + (((h >> 8) & 127) == 17 ? 40 : 0);
+                        r = 50 + grain; g = 57 + grain; b = 65 + grain;
+                    }
+                    else if (kind == 1) // living grass, light/deep leaf variation
+                    {
+                        r = 61 + n; g = 110 + n + (int)((h >> 9) & 19);
+                        b = 49 + n / 3;
+                    }
+                    else if (kind == 2) // limestone paving, 16 px grout grid
+                    {
+                        bool seam = x % 24 <= 1 || y % 24 <= 1;
+                        int v = seam ? -34 : 0;
+                        r = 164 + n / 2 + v; g = 171 + n / 2 + v;
+                        b = 174 + n / 2 + v;
+                    }
+                    else // modern tinted glass, reflective mullions, facade sheen
+                    {
+                        bool metalBar = x % 20 == 0 || y % 28 == 0;
+                        int shine = ((x * 3 + y * 2) % 47 < 4) ? 22 : 0;
+                        r = (metalBar ? 56 : 46) + n / 3 + shine;
+                        g = (metalBar ? 88 : 104) + n / 2 + shine;
+                        b = (metalBar ? 100 : 130) + n / 2 + shine;
+                    }
+                    pixels[y * size + x] = new Color32(
+                        (byte)Mathf.Clamp(r, 0, 255),
+                        (byte)Mathf.Clamp(g, 0, 255),
+                        (byte)Mathf.Clamp(b, 0, 255), 255);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(true, false);
+            if (create) AssetDatabase.CreateAsset(tex, path);
+            else EditorUtility.SetDirty(tex);
+            return tex;
+        }
+
+        private static uint DeterministicHash(int x, int y, int seed)
+        {
+            unchecked
+            {
+                uint a = (uint)(x * 73856093) ^ (uint)(y * 19349663) ^
+                    (uint)(seed * 83492791);
+                a ^= a >> 16;
+                a *= 0x7feb352d;
+                a ^= a >> 15;
+                a *= 0x846ca68b;
+                return a ^ (a >> 16);
+            }
+        }
+
         private static Material GetMaterial(
             string name, Shader shader, Texture2D atlas, bool emissive)
         {
@@ -176,8 +318,14 @@ namespace Swarmforge.Art.Editor
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", atlas);
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", emissive ? .03f : .28f);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", emissive ? .65f : .42f);
+            float metalness = name.Contains("CityGlass") ? .35f :
+                name.Contains("Asphalt") ? .10f : emissive ? .03f : .28f;
+            float smoothness = name.Contains("CityGlass") ? .81f :
+                name.Contains("Asphalt") ? .54f :
+                name.Contains("Pavement") ? .23f : 
+                name.Contains("Grass") ? .06f : emissive ? .65f : .42f;
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metalness);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
             if (emissive)
             {
                 if (mat.HasProperty("_EmissionColor"))
@@ -259,7 +407,12 @@ namespace Swarmforge.Art.Editor
                 {
                     bool glows = colorName.StartsWith("Glow", StringComparison.Ordinal) ||
                         colorName == "Visor" || colorName == "VisorRed";
-                    string key = glows ? "Glow" : "Surface";
+                    string key = colorName == "RoadAsphalt" ? "Asphalt" :
+                        (colorName == "Grass" || colorName == "GrassDeep" ||
+                        colorName == "GrassFresh") ? "Grass" :
+                        (colorName == "Pavement" || colorName == "PavementDark") ?
+                        "Pavement" : colorName == "CityGlass" ? "CityGlass" :
+                        glows ? "Glow" : "Surface";
                     MeshChunk chunk;
                     if (!result.TryGetValue(key, out chunk))
                     {
@@ -271,17 +424,35 @@ namespace Swarmforge.Art.Editor
                     {
                         int second = VertexIndex(tokens[i - 1], sourceVertices.Count);
                         int third = VertexIndex(tokens[i], sourceVertices.Count);
-                        chunk.AddTriangle(
-                            sourceVertices[first],
-                            sourceVertices[second],
-                            sourceVertices[third],
-                            uvForColor[colorName]);
+                        Vector3 a = sourceVertices[first];
+                        Vector3 b = sourceVertices[second];
+                        Vector3 c = sourceVertices[third];
+                        if (key == "Asphalt" || key == "Grass" ||
+                            key == "Pavement" || key == "CityGlass")
+                        {
+                            bool vertical = key == "CityGlass";
+                            Vector3 normal = Vector3.Cross(b - a, c - a);
+                            bool xFace = Mathf.Abs(normal.x) > Mathf.Abs(normal.z);
+                            chunk.AddTriangle(a, b, c,
+                                CityUV(a, vertical, xFace),
+                                CityUV(b, vertical, xFace),
+                                CityUV(c, vertical, xFace));
+                        }
+                        else chunk.AddTriangle(a, b, c, uvForColor[colorName]);
                     }
                 }
             }
             if (sourceVertices.Count == 0 || result.Count == 0)
                 throw new InvalidOperationException("No polygons in Stage 2 OBJ: " + relativePath);
             return result;
+        }
+
+        private static Vector2 CityUV(Vector3 v, bool vertical, bool xFace)
+        {
+            if (vertical)
+                return xFace ? new Vector2(v.z * .65f, v.y * .36f) :
+                    new Vector2(v.x * .65f, v.y * .36f);
+            return new Vector2(v.x * .70f, v.z * .70f);
         }
 
         private static int VertexIndex(string value, int count)

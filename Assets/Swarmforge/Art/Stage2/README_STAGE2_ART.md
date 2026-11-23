@@ -1,42 +1,45 @@
-# SWARMFORGE — Stage 2 P9 Visual Rework / REAL 3D Sources
+# SWARMFORGE — Stage 2 FINAL CITY VISUAL ART (GITHUB-OWNER #7098706418)
 
-**Owner visual feedback:** [Art Issue #5, P9 rejection](https://github.com/Gogenco/swarmforge-studio/issues/5#issuecomment-7085773985).  
-**Working branch:** `dev/v12-p2-rational-event-clock` — existing [Draft PR #26](https://github.com/Gogenco/swarmforge-studio/pull/26).  
-**Unity Editor:** 6000.3.28f1, `Assets/Swarmforge/Scenes/V12_Trial.unity`, portrait 9:16.  
-**Status:** `ART_SOURCE_READY_FOR_DEVELOPER_CAMERA_AND_SCALE_REWORK`. **UNITY NOT RUN** by Art Director.
+**Status:** REAL 3D ART SOURCES COMMITTED; existing P8 Game Developer integration required; **UNITY NOT RUN by Art Director**. Stage 2 Owner approval NOT yet granted.  
+**Owner directive:** https://github.com/Gogenco/swarmforge-studio/issues/5#issuecomment-7098706418  
+**One active PR/branch:** https://github.com/Gogenco/swarmforge-studio/pull/26 / `dev/v12-p2-rational-event-clock`  
+**Scene:** `Assets/Swarmforge/Scenes/V12_Trial.unity` — Unity 6000.3.28f1, 9:16 portrait.  
+**Design:** premium lively urban-mech boulevard, faithfully tracking Owner's reference *components and composition*, not a flat screenshot. Exact pixel matching requires Owner's actual in-Unity comparison.
 
-## What changed after Owner rejected P9
-This is a real replacement of all seven OBJ polygon sources (not concept images):
-- **Friendly MiniBot:** large helmet/face visor, helmet crown, luminous head and back nodes, torso core, separate joints, bevelled armour, boot plates, strong cyan/green/charcoal value contrast. Source ~2,208 tris; pivot at feet; approximate height 2.14 local.
-- **Enemy red robot:** hostile wider shoulder-plate silhouette, heavy gauntlets and claws, angular red helmet, high-contrast amber visor, armour and exposed reactor. ~2,232 tris, facing toward `-Z` for defense.
-- **Auto cannon:** raised rotating gimbal, thick graphite barrel, bevelled housings and luminous muzzle. ~1,656 tris. **Local muzzle front is Z about +0.955** (front face +0.938, small inner light +0.953). Do NOT change authoritative spawn position.
-- **Single ×2 chest:** physically raised `X2` top and front markings, metal reinforced frame, lid, emissive gold lock. ~1,384 tris. **Only one chest; keep gameplay position fixed**.
-- **Player base** and **enemy fortress:** taller multi-layered structures, energy emitters, shield/gate cores, distinct teal/red profile. ~1,116 and ~2,084 tris respectively. Existing outcome/fortress health remains authoritative.
-- **Arena:** multi-level track deck, subtle in-lane flush markings, modular raised service tracks, distinct top/bottom thresholds, edge guardrails, repeated pylons/tanks/industrial props and bright strips; extended decorative non-interactive side districts around `X=±5.18` to reduce empty 9:16 side space. Combat corridor and side chest are left open. Arena geometries are ***purely presentational***.
-- **Shared materials:** editor generator updated to **URP/Lit**, one point-sampled 8×8 RGB palette texture `P9_Palette.asset`, max **two shared material/render groups per model** (Surface/Glow). Existing 36 named colors remain as source MTL swatches; glowing trim is static emission, **not Stage 3 VFX**.
+## Actual 3D deliverables
 
-The seven authored `Models/S2_*.obj` and `Models/SWARMFORGE_P8.mtl` remain the source of truth. Unity-generated `*.mesh/.asset`, `*.mat` and `*.prefab` files are created/updated with the existing Editor binder. No gameplay scripts, camera, scene, balances, replay, CI or main modified by Art.
+**Seven expected P8 prefab names remain unchanged.** The same `SWARMFORGE > Stage 2 > Generate and Integrate P8 Art` workflow re-generates real native Unity meshes, materials, textures and prefabs from OBJ sources in `Models/`.
 
-## IMPORTANT: update existing local Unity project after new source import
-1. Preserve a backup of accepted P8 trial folder and earlier P9 screenshot/build.
-2. Download exact current branch ZIP via GitHub **after** Developer takes the handoff or replace `Assets/Swarmforge/Art/Stage2/Models/` + `Stage2ArtBuilder.cs` from PR #26 in a throwaway test project.
-3. In Unity **6000.3.28f1**, **re-run** `SWARMFORGE → Stage 2 → Generate and Integrate P8 Art`. The old generated prefabs/materials in previous P9 local project will **NOT** magically upgrade just because new OBJ sources appear.
-4. Inspect `Assets/Swarmforge/Art/Stage2/Generated/Prefabs/` and the new `Generated/Materials/P9_AtlasSurface.mat`, `P9_AtlasGlow.mat`, `P9_Palette.asset`. Confirm seven prefabs, 3D silhouettes, correct Lit material colors and no compilation errors. **Do not claim PASS until in Unity.**
-5. Existing P9 runtime `V12TrialView` still uses 85° near top-down camera, ortho size 11.75 and green/red 0.42/0.48 scales; **Developer owns the next presentation-only changes**. Until developer updates this, **new meshes alone cannot solve tiny robot screen size**.
+**Main change: `Models/S2_Arena.obj` is now a REAL 3D CITY, not the old industrial arena.** Approximately 26,956 source triangles; includes a wide authentic-looking asphalt avenue, lane separators and crossings, beveled curbs, paving-tile sidewalks, deep-green park strips, 18 broadleaf/pink/yellow/red trees, flowerbeds, concrete planters, 12 lamp posts, 10 wooden benches, four cafe patios/umbrellas, glass-sided shopfronts, 8 high-rise towers with many authored 3D window panels and concrete facade bands, fortification banners, and a distant skyline behind the enemy fortress. All are true model faces and render in the live Unity world with perspective changes. Buildings/flowers/sidewalk furniture are outside the road's P8 logical combat lanes. **No additional functional or fake decorative chests** and no art colliders or combat mechanics. Exterior towers need framing/occlusion review by Developer.
 
-## DEV HANDOFF: precise presentation-only adjustments
-**Suggested FIRST Unity experiment (not asserted as tested/approved):**
-- Move camera from 85° top-down to **60–67° down-angle**, target arena Z near 9.0, and adjust ortho size around **11–12** / framing as required to show cannon, left side chest, both bases, full attack lane and outer decorations in 9:16. Do not crop playable route for a hero shot; no camera controller that changes aim mapping without Owner validation. Keep existing screenshot as before/after comparison.
-- Increase MiniBot prefab visual root from **0.42** to approximately **0.75–0.85** and red enemy from **0.48** to approximately **0.67–0.78**, then tune actual sizes **in Game View**. New bot local footprint depth ~0.7: `0.8×0.7=0.56 < 0.84` world longitudinal spacing between x2 bots. **Confirm actual two-bot gap/aim in Unity** instead of assuming.
-- Keep true green `WorldX(u.X)` and `WorldZ(u.Position)`, no sideways green offsets; both x2 bots stay on **same original X**, with actual 8-tick delayed follower. Red enemies keep their approved ID-stable visual grouping.
-- Cannon: new front Z≈+.953 local, so adapt existing `Stage2MuzzleBackOffset = 0.953f * CannonModelScale` if changing `CannonModelScale` (e.g. .65→.85). Cannon root follows simulation-selected X unchanged; shot birth Z0 unchanged.
-- Left x2 box must remain at `WorldX(-950)`, `WorldZ(9000)`, with HP5 and no new box or collision. Keep existing Art catalog references and regenerate its 7 prefabs. Keep `BoxLabelWorld`/readability in view; no HUD redesign here.
-- Visual environment is outside combat path; do not introduce new colliders or damage from 3D meshes. If angle reveals wall/pylon obstruction, tune camera/visual-only art offsets **without** changing physics coordinates. Keep existing old `Battle.unity` and all legacy fallback fixtures intact.
-- Use reasonable directional lighting/color. URP/Lit now makes side faces and bevels readable. **No Stage 3 animations/VFX, no Stage 4 UI redesign, no Stage 5 sound.**
+**Legacy protection:** prior industrial P9 arena source is archived as `Models/Legacy/S2_Arena_P9_Industrial.obj.txt` (not imported as an active OBJ). Existing P8 simulation code and trial scene remain untouched by Art.
 
-## Owner Unity acceptance gate (actual results required, NOT claims)
-In fresh **9:16 Unity Game View** after Developer integration, inspect two images (previous P9 and new live Unity) and check: MiniBot eyes/helmet/arms discernible, red enemy unmistakable, cannon muzzle, raised x2 glyph, fortresses, visible rich side environment without blocked box or path. **No synthetic image qualifies as Unity evidence.**
+**Existing real 3D models upgraded, original names retained:**
+- `S2_FriendlyMiniBot.obj`: green allied articulated armored mech, large visor/crown/head, hands/boots, reinforced joints and rivets, machine vents and glow accents. ~2,580 triangles source.
+- `S2_RedEnemyRobot.obj`: distinct wide-shouldered hostile red mech, claws and plate segments, amber face visor, weapon-arm details and real bolts. ~2,456 triangles.
+- `S2_AutoCannon.obj`: thick metallic turret/muzzle from P9. **Local muzzle remains about Z +0.953**, do not move gameplay shot birth or captured-X.
+- `S2_X2Chest.obj`: **only one** side chest with physically raised top/front X2 marks and latch; original P8 HP5 is authoritative from sim. No fake loot/UI counters added.
+- `S2_PlayerBase.obj`: taller cyan friendly bastion, new front teal crest banner/rivets/reinforcements; ~1,296 triangles.
+- `S2_EnemyFortress.obj`: taller red hostile gate with roof battlements and red hanging banners; ~2,276 triangles.
 
-Use Unity EditMode and PlayMode full regression (Owner P8 baseline target 86+8, plus any current Stage 2 added checks; actual discovery counts may differ), Console errors=0, HP2/HP3, chest isolated, boost 12s, true x2 sequential same-line, red centered combat, Win/Lose/Restart, old Battle and mobile profiling where available.
+**Art material/texture generation:** Art-owned `Editor/Stage2ArtBuilder.cs` now uses `URP/Lit` and a 16×16 palette texture for metals/paint/leaf/flowers; on manual Editor generation it also saves **four real tileable `Texture2D.asset` textures** (128×128 procedural asphalt grain, green grass variation, tiled limestone sidewalks and glossy glass). Color swatches, textures and lit shader are then used on native Unity meshes with world-projected UVs. Only procedural Editor-time texture generation; no gameplay RNG/code, no external PNG dependency. Mesh importer builds geometry into shared group renderers rather than thousands of GameObjects.
 
-**Boundary:** `UNITY NOT RUN` by Art Director. Native assets need Unity generation/re-import. Stage 2 **not Owner-approved** until live runtime review and regression. No merge/main/Actions tests, no Stage 3+.
+## IMPORTANT — Game Developer sequential handoff
+
+**Art Director writes completed. Developer is next.** Do not mix concurrent PR #26 writes.
+
+1. Save Owner-accepted P8 folder; download current branch ZIP into **fresh** Unity project folder. Unity 6000.3.28f1.
+2. Open Unity and resolve any compiler/import errors FIRST. Execute **`SWARMFORGE > Stage 2 > Generate and Integrate P8 Art`**. This must regenerate previously made P9 assets; old locally generated prefabs are stale. The existing binder/catalog still expects the same seven prefab names; city art is embedded in `S2_Arena` to avoid changing Gameplay or Art Catalog contracts.
+3. Inspect `Assets/Swarmforge/Art/Stage2/Generated/Prefabs/S2_Arena.prefab`: real road + street furniture + trees + glass towers. Check generated `P10_Asphalt_Texture.asset`, `P10_Grass_Texture.asset`, `P10_Pavement_Texture.asset` and `P10_CityGlass_Texture.asset` in `Generated/Materials`. Verify no missing shaders/materials/pink assets in Unity. Inspect green and red robots and both fortresses.
+4. In `V12TrialView` PRESENTATION-ONLY: frame an elevated oblique 9:16 camera so the street appears wide, the top enemy red fortress and lower cyan base are simultaneously visible, the left X2 chest remains accessible and the modern towers/flowers/trees flank the avenue. Preserve large readable bots, street perspective, city backdrop and unobstructed aim. P9 source previously used tilt ~64°, green root scale .76, red .70, cannon .84; adjust based on **actual Unity Game view**, not a fixed numeric promise. Buildings extend roughly X±9.5 and beyond Z24; prioritize complete **playable road, chest and fortresses** over displaying every skyline prop. Tight crop only with Owner acceptance; do not shrink robots back into dots.
+5. Preserve cannon **muzzle visual placement** with actual shot origin Z0 by cosmetic back-offset `~0.953 * cosmeticScale`; there is no new projectile type. Green units use authoritative true X/Z and follower at t+8 ticks, **never green sideways fanout**. Red group retains correct center sim collisions and visual formation offsets.
+6. **Do not alter** `V12TrialSimulation`, 30Hz, 1-finger aim, Box x2 HP5 / boost 12s / queue, HP2/HP3, enemy combat C1–C6, Fortress HP40 / Base HP3, victory/loss/timeout/restart/replay, old `Battle.unity` or underlying AI/physics. All city meshes are visual-only, NO colliders/Rigidbody or interaction with sim.
+7. Stage 3 effects, Stage 4 HUD and Stage 5 audio are **not authorized**. Keep accurate gameplay HUD counters even when the approved reference happens to show fake extra crates/Box x12. No Stage3 lasers or auto-loot.
+
+## Acceptance gate — Owner ONLY in actual Unity
+
+From fresh source ZIP: run the Editor generation, open `V12_Trial.unity`, portrait 9:16 **Game View**. Compare **real Unity screenshots** to approved reference. Confirm road width/map angle, rich towers, lush trees and mixed-color foliage, grass/flowers, glass facades, daylight and shadows, detailed visibly enlarged green/red robots, realistic cannon/single X2 chest/fortresses and empty area filled. Inspect Console for any real errors, mobile profiler if available (30/60 FPS are goals, **not verified**). If importer, atlas or 32-bit mesh indices fail, report exact Unity Console output.
+
+Run *actual* Unity EditMode and PlayMode and P8 manual regression: controlled cannon aim, chest 5 real hits and X2 12s, same-X first/follower at +8 30Hz ticks (no sideways shot), center enemy combat, HP2/HP3, fortress/base outcomes, restart, queued boost/replay, legacy scene. Historic P8 Owner target was 86 EditMode + 8 PlayMode; the current P9+ art project may discover more tests and actual counts must be reported. A previous P8 green does not certify this new art build.
+
+**ART LIMITATIONS:** No Unity Editor in Art environment: **UNITY NOT RUN**; no Unity-generated native prefab files committed, no actual in-engine screenshot/visual QA, FPS claim or test PASS. Source OBJ and editor importer are committed and form real meshes/materials/prefabs **when executed in Unity**. Developer integrates presentation in existing PR #26, Owner approves only following live Unity testing. No main, merge, force push/rebase, GitHub Actions/Node/CI, VS-02 or Stage 3.
