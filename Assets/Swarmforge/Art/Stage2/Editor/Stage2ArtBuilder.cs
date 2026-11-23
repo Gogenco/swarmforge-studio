@@ -148,13 +148,13 @@ namespace Swarmforge.Art.Editor
             // Procedural, *saved* Unity Texture2D assets; not an image backdrop.
             // They are mapped onto genuine 3D mesh faces in the OBJ geometry.
             Material asphalt = GetMaterial("P10_Asphalt", shader,
-                GetCityTexture("P10_Asphalt", 128, 0), false);
+                GetCityTexture("P10_Asphalt", 256, 0), false);
             Material grass = GetMaterial("P10_Grass", shader,
-                GetCityTexture("P10_Grass", 128, 1), false);
+                GetCityTexture("P10_Grass", 256, 1), false);
             Material pavement = GetMaterial("P10_Pavement", shader,
-                GetCityTexture("P10_Pavement", 128, 2), false);
+                GetCityTexture("P10_Pavement", 256, 2), false);
             Material glass = GetMaterial("P10_CityGlass", shader,
-                GetCityTexture("P10_CityGlass", 128, 3), false);
+                GetCityTexture("P10_CityGlass", 256, 3), false);
             var materials = new Dictionary<string, Material>
             {
                 { "Surface", surface }, { "Glow", glow },
@@ -236,44 +236,71 @@ namespace Swarmforge.Art.Editor
             Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
             bool create = tex == null;
             if (create) tex = new Texture2D(size, size, TextureFormat.RGBA32, true, false);
+            // The Owner may re-run the menu in an existing P9 Unity folder.
+            // Upgrade previously generated 128px textures without requiring a fresh project.
             if (tex.width != size || tex.height != size)
-                throw new InvalidOperationException("Unexpected city texture resolution: " + path);
+                tex.Reinitialize(size, size, TextureFormat.RGBA32, true);
             tex.name = name + "_Texture";
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Trilinear;
             tex.anisoLevel = 2;
             var pixels = new Color32[size * size];
+            // Three scales of reproducible texture variation; authored once in
+            // Unity Editor, NO runtime procedural work, NO new gameplay RNG.
+            // Rough asphalt: aggregate pores, tire staining and faint wet patches.
+            // Grass: multi-tonal clumps; stone: grout joints; facade: reflected sky.
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                    uint h = DeterministicHash(x, y, 17 + kind * 31);
-                    int n = (int)(h & 31) - 15;
+                    uint fine = DeterministicHash(x, y, 17 + kind * 31);
+                    uint medium = DeterministicHash(x / 4, y / 4, 119 + kind * 67);
+                    uint large = DeterministicHash(x / 23, y / 23, 811 + kind * 17);
+                    int small = (int)(fine & 31) - 16;
+                    int middle = (int)(medium & 31) - 16;
+                    int broad = (int)(large & 31) - 16;
                     int r, g, b;
-                    if (kind == 0) // asphalts / tiny pebble flecks
+                    if (kind == 0)
                     {
-                        int grain = n / 2 + (((h >> 8) & 127) == 17 ? 40 : 0);
-                        r = 50 + grain; g = 57 + grain; b = 65 + grain;
+                        bool aggregate = ((fine >> 8) & 1023) < 21;
+                        bool narrowJoint = (x * 7 + y * 11) % 251 == 0;
+                        int road = small / 4 + middle / 4 + broad / 3 +
+                            (aggregate ? 22 : 0) - (narrowJoint ? 12 : 0);
+                        int darkPatch = ((large >> 9) & 7) <= 1 ? -8 : 0;
+                        r = 49 + road + darkPatch;
+                        g = 56 + road + darkPatch;
+                        b = 62 + road + darkPatch;
                     }
-                    else if (kind == 1) // living grass, light/deep leaf variation
+                    else if (kind == 1)
                     {
-                        r = 61 + n; g = 110 + n + (int)((h >> 9) & 19);
-                        b = 49 + n / 3;
+                        // Remove uniform bright green; local lawn patches with blades.
+                        int chlorophyll = small / 3 + middle + broad +
+                            (((fine >> 11) & 3) == 0 ? 6 : 0);
+                        int brown = ((large >> 11) & 31) == 1 ? 13 : 0;
+                        r = 69 + chlorophyll + brown;
+                        g = 115 + chlorophyll - brown / 2;
+                        b = 50 + chlorophyll / 2;
                     }
-                    else if (kind == 2) // limestone paving, 16 px grout grid
+                    else if (kind == 2)
                     {
-                        bool seam = x % 24 <= 1 || y % 24 <= 1;
-                        int v = seam ? -34 : 0;
-                        r = 164 + n / 2 + v; g = 171 + n / 2 + v;
-                        b = 174 + n / 2 + v;
+                        // Small irregular limestone paving and restrained grout.
+                        int ox = ((y / 32) & 1) == 0 ? 0 : 16;
+                        bool seam = (x + ox) % 32 < 2 || y % 32 < 2;
+                        int stone = small / 5 + middle / 4 + broad / 3 +
+                            (seam ? -38 : 0);
+                        r = 163 + stone; g = 173 + stone; b = 180 + stone;
                     }
-                    else // modern tinted glass, reflective mullions, facade sheen
+                    else
                     {
-                        bool metalBar = x % 20 == 0 || y % 28 == 0;
-                        int shine = ((x * 3 + y * 2) % 47 < 4) ? 22 : 0;
-                        r = (metalBar ? 56 : 46) + n / 3 + shine;
-                        g = (metalBar ? 88 : 104) + n / 2 + shine;
-                        b = (metalBar ? 100 : 130) + n / 2 + shine;
+                        // Reflective blue-grey glazed curtain wall: vertical
+                        // sky glints, frame mullions and varied interior strips.
+                        bool mullion = x % 32 < 2 || y % 48 < 2;
+                        int glint = (x + y / 3) % 57 < 5 ? 21 : 0;
+                        int pane = ((medium >> 11) & 7) == 1 ? 17 : 0;
+                        int shade = small / 7 + middle / 4 + broad / 4;
+                        r = (mullion ? 40 : 47) + shade + glint + pane;
+                        g = (mullion ? 68 : 100) + shade + glint + pane;
+                        b = (mullion ? 81 : 125) + shade + glint + pane;
                     }
                     pixels[y * size + x] = new Color32(
                         (byte)Mathf.Clamp(r, 0, 255),
@@ -319,11 +346,13 @@ namespace Swarmforge.Art.Editor
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
             float metalness = name.Contains("CityGlass") ? .35f :
-                name.Contains("Asphalt") ? .10f : emissive ? .03f : .28f;
-            float smoothness = name.Contains("CityGlass") ? .81f :
-                name.Contains("Asphalt") ? .54f :
+                name.Contains("Asphalt") ? .04f :
+                name.Contains("Grass") || name.Contains("Pavement") ? 0f :
+                emissive ? .03f : .16f;
+            float smoothness = name.Contains("CityGlass") ? .83f :
+                name.Contains("Asphalt") ? .33f :
                 name.Contains("Pavement") ? .23f : 
-                name.Contains("Grass") ? .06f : emissive ? .65f : .42f;
+                name.Contains("Grass") ? .03f : emissive ? .65f : .39f;
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metalness);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
             if (emissive)
