@@ -50,15 +50,16 @@ namespace Swarmforge.Presentation
 
             if (hasNativeArt)
             {
-                // Native ART arena contains the floor, lanes, center divider
-                // and boundaries. Do not keep duplicate cubes (z-fighting).
+                // Final City: all authored buildings, textured boulevard, trees,
+                // lawns and furniture are part of the one native city prefab.
+                // It is purely visual. Never duplicate the greybox road here.
                 PlaceArt("Trial_Art_Arena", art.Arena, new Vector3(0f, 0f, 0f), Vector3.one);
                 PlaceArt("Player_Base", art.PlayerBase,
                     new Vector3(0f, .015f, -1.5f), Vector3.one * .95f);
                 fortress = PlaceArt("P2_Enemy_Fortress", art.EnemyFortress,
                     new Vector3(0f, .015f, 18.35f), Vector3.one * .90f);
-                // Author-authored cannon muzzle reaches local +Z=.935.
-                // Scale .65 and offset it back so local muzzle ends at Z=0.
+                // Keep authored +Z .9535 muzzle at the *real* sim birth Z=0.
+                // No gameplay shot positions, aim or timing are altered.
                 cannon = PlaceArt("P2_Auto_Cannon", art.AutoCannon,
                     new Vector3(0f, .02f, -Stage2MuzzleBackOffset), Vector3.one * CannonModelScale);
                 V12BoxBalance b = definition.Boxes[0];
@@ -88,34 +89,44 @@ namespace Swarmforge.Presentation
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            // Portrait-first cinematic overview. Lower angle exposes new P9
-            // bevels, vertical robot silhouettes and authored side scenery.
-            // Horizontal framing is widened automatically on tall devices,
-            // never cropping the one left chest or central combat corridor.
-            camera.orthographicSize = 12.2f;
-            camera.transform.position = new Vector3(0f, 24f, -2.7f);
-            camera.transform.rotation = Quaternion.Euler(64f, 0f, 0f);
+            // Final City 9:16: lower oblique angle reveals the building facades
+            // and colored tree crowns while covering the full P8 road and box.
+            // Orthographic projection is retained to protect aim mapping.
+            camera.orthographic = true;
+            camera.orthographicSize = PortraitMinHalfHeight;
+            camera.transform.position = new Vector3(0f, 19.5f, -2.7f);
+            camera.transform.rotation = Quaternion.Euler(59f, 0f, 0f);
+            camera.nearClipPlane = .15f;
+            camera.farClipPlane = 110f;
             UpdateCameraFraming();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.04f, .065f, .12f);
+            camera.backgroundColor = new Color(.64f, .80f, .92f); // bright daylight sky
+
+            // A single, restrained soft-shadow sun. The merged native city
+            // casts only from its Surface layer; bot crowds do not cast into
+            // the shadow map. Respect URP/quality shadow availability.
             var lightObject = new GameObject("V12_Trial_Light");
             lightObject.transform.SetParent(root);
-            lightObject.transform.rotation = Quaternion.Euler(49f, -34f, 0f);
+            lightObject.transform.rotation = Quaternion.Euler(53f, -42f, 0f);
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.color = new Color(1f, .94f, .88f);
-            light.intensity = 1.4f;
-            light.shadows = LightShadows.None; // mobile-friendly, no realtime shadow maps
+            light.color = new Color(1f, .965f, .90f);
+            light.intensity = 1.35f;
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = .28f;
+            light.shadowBias = .07f;
+            light.shadowNormalBias = .35f;
+            light.shadowResolution = LightShadowResolution.Low;
 
-            // Subtle opposing fill makes the Lit palette and side facets
-            // readable without adding costly point lights or gameplay VFX.
+            // Cool, shadow-free daylight fill keeps the URP Lit glass, armor
+            // and foliage readable without extra point lights or Stage3 VFX.
             var fillObject = new GameObject("V12_Trial_Cool_Fill");
             fillObject.transform.SetParent(root);
-            fillObject.transform.rotation = Quaternion.Euler(32f, 142f, 0f);
+            fillObject.transform.rotation = Quaternion.Euler(32f, 138f, 0f);
             var fill = fillObject.AddComponent<Light>();
             fill.type = LightType.Directional;
-            fill.color = new Color(.36f, .65f, 1f);
-            fill.intensity = .42f;
+            fill.color = new Color(.67f, .81f, 1f);
+            fill.intensity = .25f;
             fill.shadows = LightShadows.None;
         }
 
@@ -123,15 +134,19 @@ namespace Swarmforge.Presentation
         // P9 model's authored front muzzle ends near +0.9535 local Z.
         // The root stays negative by this much; shot birth remains world Z=0.
         private const float Stage2MuzzleBackOffset = .9535f * CannonModelScale;
-        private const float PortraitMinHalfHeight = 12.2f;
-        private const float ArenaHalfWidthWithMargin = 6.8f;
+        private const float PortraitMinHalfHeight = 12.8f;
+        // The city spans +/-10.7, but showing every remote tower would
+        // shrink the playable center and robots. Frame the boulevard,
+        // grass, trees and portions of the flanking high-rises first.
+        private const float CityRoadsideHalfWidthWithMargin = 7.6f;
 
         private void UpdateCameraFraming()
         {
-            // The authored P9 arena extends to X +/-6.09. Fit it on 9:16
-            // and taller phones while keeping a consistent centered view.
+            // Fit the playable road, left X2 target and roadside vegetation
+            // on 9:16 and narrower phones. Some far exterior towers are
+            // intentionally cropped to keep P8 robots legible.
             camera.orthographicSize = Mathf.Max(PortraitMinHalfHeight,
-                ArenaHalfWidthWithMargin / Mathf.Max(.1f, camera.aspect));
+                CityRoadsideHalfWidthWithMargin / Mathf.Max(.1f, camera.aspect));
         }
 
         public Vector3 BoxLabelWorld()
@@ -178,6 +193,10 @@ namespace Swarmforge.Presentation
                 {
                     GameObject nativePrefab = hasNativeArt ? (greenBot ? art.FriendlyMiniBot : art.RedEnemyRobot) : null;
                     instance = Rent(pool, primitive, material, label, nativePrefab);
+                    // The four red enemies may cast small contact shadows;
+                    // the many green bots deliberately avoid costly shadow
+                    // casters. Geometry never affects hitboxes.
+                    if (nativePrefab != null) SetNativeShadowPolicy(instance, false, greenBot);
                     active.Add(u.Id, instance);
                 }
                 // Green bots use ONLY authoritative X/Z. Sequential x2
@@ -191,7 +210,7 @@ namespace Swarmforge.Presentation
                     hasNativeArt ? .012f : (greenBot ? .39f : .49f),
                     WorldZ(u.Position) + visualOffset.y);
                 instance.transform.localScale = hasNativeArt ?
-                    Vector3.one * (greenBot ? .76f : .70f) :
+                    Vector3.one * (greenBot ? .77f : .72f) :
                     greenBot ? new Vector3(.30f, .32f, .30f) :
                     new Vector3(.54f + .10f * (u.MaxHP - 1), .54f, .54f);
             }
@@ -236,7 +255,26 @@ namespace Swarmforge.Presentation
             go.transform.localScale = scale;
             foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
+            SetNativeShadowPolicy(go, name == "Trial_Art_Arena", false);
             return go;
+        }
+
+        // City: one combined Surface renderer casts muted silhouettes from
+        // trees/buildings; grass, asphalt, pavement, windows and glow do not
+        // duplicate large shadow-caster geometry. Small static landmarks may
+        // cast; pooled green crowds do not. No new colliders/physics.
+        private static void SetNativeShadowPolicy(GameObject visual, bool city, bool green)
+        {
+            foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
+            {
+                string layer = renderer.gameObject.name;
+                bool glow = layer == "Glow";
+                bool cityCaster = city && layer == "Surface";
+                renderer.shadowCastingMode =
+                    !glow && !green && (!city || cityCaster) ?
+                    ShadowCastingMode.On : ShadowCastingMode.Off;
+                renderer.receiveShadows = !glow;
+            }
         }
 
         private GameObject Block(string name, Material material, Vector3 position, Vector3 size)

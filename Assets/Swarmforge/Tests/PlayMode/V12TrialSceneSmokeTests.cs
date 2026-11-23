@@ -68,10 +68,10 @@ namespace Swarmforge.Tests
             Camera cam = cameraObject.GetComponent<Camera>();
             Assert.That(cam, Is.Not.Null);
             Assert.That(cam.orthographic, Is.True);
-            Assert.That(cam.transform.eulerAngles.x, Is.InRange(60f, 67f),
-                "P9 art must expose 3D silhouettes rather than the P8 85-degree view.");
-            Assert.That(cam.orthographicSize, Is.GreaterThanOrEqualTo(12.2f));
-            Assert.That(cam.orthographicSize * (9f / 16f), Is.GreaterThan(6f),
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(57f, 61f),
+                "Final City needs a lowered oblique view to show the facades.");
+            Assert.That(cam.orthographicSize, Is.GreaterThanOrEqualTo(12.8f));
+            Assert.That(cam.orthographicSize * (9f / 16f), Is.GreaterThan(7f),
                 "At 9:16 the full authored arena width needs room.");
             Assert.That(green.transform.localScale.x, Is.InRange(.75f, .85f));
             Assert.That(cannon.transform.localScale.x, Is.GreaterThanOrEqualTo(.8f));
@@ -82,6 +82,62 @@ namespace Swarmforge.Tests
             var fillLight = GameObject.Find("V12_Trial_Cool_Fill");
             Assert.That(fillLight, Is.Not.Null);
             Assert.That(fillLight.GetComponent<Light>().shadows, Is.EqualTo(LightShadows.None));
+        }
+
+        [UnityTest]
+        public IEnumerator V12Trial_FinalCityNativeArenaAndDaylightPreserveP8PlayableLandmarks()
+        {
+            // Requires the Owner's editor generation before Test Runner:
+            // SWARMFORGE > Stage 2 > Generate and Integrate P8 Art.
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            V12Stage2ArtCatalog art = V12Stage2ArtCatalog.Load();
+            Assert.That(art, Is.Not.Null, "Generate and Integrate P8 Art in Unity first.");
+            Assert.That(art.IsComplete, Is.True);
+            GameObject city = GameObject.Find("Trial_Art_Arena");
+            GameObject baseRoot = GameObject.Find("Player_Base");
+            GameObject fortress = GameObject.Find("P2_Enemy_Fortress");
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            GameObject chest = GameObject.Find("X2_Destructible_Box");
+            GameObject green = GameObject.Find("P2_MiniBot");
+            GameObject cameraObject = GameObject.Find("V12_Trial_Camera");
+            Assert.That(city, Is.Not.Null);
+            Assert.That(baseRoot, Is.Not.Null);
+            Assert.That(fortress, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(chest, Is.Not.Null);
+            Assert.That(green, Is.Not.Null);
+            Assert.That(cameraObject, Is.Not.Null);
+            Camera cam = cameraObject.GetComponent<Camera>();
+            Assert.That(cam.orthographic, Is.True);
+            Assert.That(cam.backgroundColor.b, Is.GreaterThan(.85f));
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(57f, 61f));
+            Assert.That(green.transform.localScale.x, Is.InRange(.75f, .80f));
+            Assert.That(Mathf.Abs(green.transform.position.x - cannon.transform.position.x),
+                Is.LessThan(.0001f), "P8 green muzzle aim X must remain exact.");
+            Assert.That(Mathf.Abs(cannon.transform.position.z +
+                .9535f * cannon.transform.localScale.z), Is.LessThan(.025f));
+            foreach (GameObject landmark in new[] { cannon, chest, baseRoot, fortress })
+            {
+                Vector3 projected = cam.WorldToViewportPoint(landmark.transform.position);
+                Assert.That(projected.z, Is.GreaterThan(0f), landmark.name + " is behind city camera");
+                Assert.That(projected.x, Is.InRange(.01f, .99f), landmark.name + " is cropped in X");
+                Assert.That(projected.y, Is.InRange(.01f, .99f), landmark.name + " is cropped in Y");
+            }
+            var sun = GameObject.Find("V12_Trial_Light").GetComponent<Light>();
+            Assert.That(sun.shadows, Is.EqualTo(LightShadows.Soft));
+            Assert.That(sun.shadowStrength, Is.InRange(.2f, .4f));
+            var citySurface = city.transform.Find("Surface");
+            Assert.That(citySurface, Is.Not.Null);
+            Assert.That(citySurface.GetComponent<Renderer>().shadowCastingMode,
+                Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.On));
+            foreach (Collider collider in city.GetComponentsInChildren<Collider>(true))
+                Assert.Fail("City art must not introduce physics collisions: " + collider.name);
+            var entry = Object.FindFirstObjectByType<V12TrialEntryPoint>();
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40));
+            Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
         }
 
         [UnityTest]
