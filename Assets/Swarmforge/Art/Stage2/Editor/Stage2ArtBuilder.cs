@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Swarmforge.Art.Editor
 {
     /// <summary>
-    /// Stage 2 P9 authored OBJ -> native Unity Mesh, Lit atlas Material and Prefab.
+    /// Stage 2 P12 real 3D source OBJ + PBR PNG maps -> native Unity Mesh, Lit Material and Prefab.
     /// Two shared renderers/materials per model (body and luminous trim), not
     /// one renderer/draw call per source OBJ color. No gameplay components.
     /// Invoked explicitly by the Owner's existing Generate and Integrate P8 Art menu.
@@ -145,16 +145,12 @@ namespace Swarmforge.Art.Editor
 
             Material surface = GetMaterial("P9_AtlasSurface", shader, palette, false);
             Material glow = GetMaterial("P9_AtlasGlow", shader, palette, true);
-            // Procedural, *saved* Unity Texture2D assets; not an image backdrop.
-            // They are mapped onto genuine 3D mesh faces in the OBJ geometry.
-            Material asphalt = GetMaterial("P10_Asphalt", shader,
-                GetCityTexture("P10_Asphalt", 256, 0), false);
-            Material grass = GetMaterial("P10_Grass", shader,
-                GetCityTexture("P10_Grass", 256, 1), false);
-            Material pavement = GetMaterial("P10_Pavement", shader,
-                GetCityTexture("P10_Pavement", 256, 2), false);
-            Material glass = GetMaterial("P10_CityGlass", shader,
-                GetCityTexture("P10_CityGlass", 256, 3), false);
+            // P12: physically based texture maps are real repository PNG assets.
+            // Normal maps, metallic/smoothness masks and albedos import in Unity.
+            Material asphalt = GetP12CityMaterial("Asphalt", shader);
+            Material grass = GetP12CityMaterial("Grass", shader);
+            Material pavement = GetP12CityMaterial("Pavement", shader);
+            Material glass = GetP12CityMaterial("CityGlass", shader);
             var materials = new Dictionary<string, Material>
             {
                 { "Surface", surface }, { "Glow", glow },
@@ -168,13 +164,23 @@ namespace Swarmforge.Art.Editor
                 var prefabRoot = new GameObject(name);
                 try
                 {
-                    foreach (var pair in chunks)
+                    // Runtime-facing prefab slot remains identical. Bots now carry
+                    // three real geometry LOD meshes (P12, LOD1 and LOD2).
+                    Renderer[] level0 = BuildVisualLayers(prefabRoot, name, "LOD0", chunks, materials);
+                    if (name == "S2_FriendlyMiniBot" || name == "S2_RedEnemyRobot")
                     {
-                        Mesh mesh = LoadOrCreateMesh(name, pair.Key, pair.Value);
-                        var child = new GameObject(pair.Key);
-                        child.transform.SetParent(prefabRoot.transform, false);
-                        child.AddComponent<MeshFilter>().sharedMesh = mesh;
-                        child.AddComponent<MeshRenderer>().sharedMaterial = materials[pair.Key];
+                        var one = ReadObj(Input + name + "_LOD1.obj", uvForColor);
+                        var two = ReadObj(Input + name + "_LOD2.obj", uvForColor);
+                        Renderer[] level1 = BuildVisualLayers(prefabRoot, name, "LOD1", one, materials);
+                        Renderer[] level2 = BuildVisualLayers(prefabRoot, name, "LOD2", two, materials);
+                        var group = prefabRoot.AddComponent<LODGroup>();
+                        group.SetLODs(new[]
+                        {
+                            new LOD(.035f, level0),
+                            new LOD(.012f, level1),
+                            new LOD(.004f, level2)
+                        });
+                        group.RecalculateBounds();
                     }
                     PrefabUtility.SaveAsPrefabAsset(
                         prefabRoot, Output + "Prefabs/" + name + ".prefab");
@@ -186,9 +192,27 @@ namespace Swarmforge.Art.Editor
             }
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("SWARMFORGE Stage 2 P9 Art: seven detailed prefabs generated, " +
-                      "shared lit texture palette and two material groups. " +
+            Debug.Log("SWARMFORGE Stage 2 P12 Art: seven rebuilt 3D prefabs generated, " +
+                      "shared metal palette plus true PBR albedo/normal/mask PNG maps. " +
                       "Use Game View in Unity for actual visual acceptance.");
+        }
+
+        private static Renderer[] BuildVisualLayers(
+            GameObject root, string model, string layerName,
+            Dictionary<string, MeshChunk> chunks, Dictionary<string, Material> materials)
+        {
+            var renderers = new List<Renderer>();
+            foreach (var pair in chunks)
+            {
+                Mesh mesh = LoadOrCreateMesh(model + "_" + layerName, pair.Key, pair.Value);
+                var child = new GameObject(layerName + "_" + pair.Key);
+                child.transform.SetParent(root.transform, false);
+                child.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = child.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = materials[pair.Key];
+                renderers.Add(renderer);
+            }
+            return renderers.ToArray();
         }
 
         private static Texture2D GetPalette(
@@ -327,6 +351,80 @@ namespace Swarmforge.Art.Editor
                 a *= 0x846ca68b;
                 return a ^ (a >> 16);
             }
+        }
+
+        /// <summary>
+        /// Real P12 Albedo/Normal/Mask PNG sources; each map is 512x512 RGBA.
+        /// URP Lit metallic workflow: Mask.R=metallic, Mask.G=occlusion (packed
+        /// for future shader use), Mask.A=smoothness (inverse of roughness).
+        /// NORMALMAP / METALLICSPECGLOSSMAP keywords are required for URP.
+        /// Files remain source-controlled under Art/Stage2/Textures.
+        /// </summary>
+        private static Material GetP12CityMaterial(string type, Shader shader)
+        {
+            string source = Root + "/Textures/P12_" + type + "_";
+            Texture2D albedo = RequireTexture(source + "Albedo.png", false, false);
+            Texture2D normal = RequireTexture(source + "Normal.png", true, false);
+            Texture2D mask = RequireTexture(source + "Mask.png", false, true);
+            string assetPath = Output + "Materials/P12_" + type + ".mat";
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
+            if (mat == null)
+            {
+                mat = new Material(shader) { name = "P12_" + type };
+                AssetDatabase.CreateAsset(mat, assetPath);
+            }
+            else mat.shader = shader;
+
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", albedo);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", albedo);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+            if (mat.HasProperty("_BumpMap")) mat.SetTexture("_BumpMap", normal);
+            if (mat.HasProperty("_BumpScale")) mat.SetFloat("_BumpScale", type == "Grass" ? .35f : .70f);
+            if (mat.HasProperty("_MetallicGlossMap")) mat.SetTexture("_MetallicGlossMap", mask);
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 1f);
+            // Multiply packed Mask.A smoothness by 1 (no extra suppression).
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 1f);
+            if (mat.HasProperty("_SmoothnessTextureChannel"))
+                mat.SetFloat("_SmoothnessTextureChannel", 0f);
+            mat.EnableKeyword("_NORMALMAP");
+            mat.EnableKeyword("_METALLICSPECGLOSSMAP");
+            mat.DisableKeyword("_EMISSION");
+            if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", Color.black);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private static Texture2D RequireTexture(string path, bool normal, bool mask)
+        {
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            }
+            if (importer == null)
+                throw new FileNotFoundException("Missing P12 PBR texture. Extract full PR #26 ZIP.", path);
+
+            bool dirty = importer.maxTextureSize != 512 ||
+                importer.mipmapEnabled != true ||
+                importer.textureType != (normal ? TextureImporterType.NormalMap : TextureImporterType.Default) ||
+                importer.sRGBTexture != (!normal && !mask) ||
+                importer.wrapMode != TextureWrapMode.Repeat;
+            if (dirty)
+            {
+                importer.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+                importer.sRGBTexture = !normal && !mask;
+                importer.mipmapEnabled = true;
+                importer.wrapMode = TextureWrapMode.Repeat;
+                importer.maxTextureSize = 512;
+                importer.textureCompression = TextureImporterCompression.Compressed;
+                importer.SaveAndReimport();
+            }
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (tex == null)
+                throw new FileNotFoundException("P12 PBR texture not imported.", path);
+            return tex;
         }
 
         private static Material GetMaterial(
