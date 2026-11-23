@@ -88,19 +88,19 @@ namespace Swarmforge.Presentation
             cameraObject.transform.SetParent(root);
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
-            camera.orthographic = true;
-            // Final City 9:16: lower oblique angle reveals the building facades
-            // and colored tree crowns while covering the full P8 road and box.
-            // Orthographic projection is retained to protect aim mapping.
-            camera.orthographic = true;
-            camera.orthographicSize = PortraitMinHalfHeight;
-            camera.transform.position = new Vector3(0f, 19.5f, -2.7f);
-            camera.transform.rotation = Quaternion.Euler(59f, 0f, 0f);
+            // P11: a TRUE perspective view, unlike the flat P8/P10 ortho
+            // map. The centered optical axis exposes facade sides/rooftops
+            // and makes foreground mechs legible without magnifying meshes.
+            // Camera has ZERO yaw: projected cannon rail X stays monotonic,
+            // and every P8 touch command still targets its exact sim X.
+            camera.orthographic = false;
+            camera.fieldOfView = PerspectiveVerticalFov;
+            camera.transform.position = new Vector3(0f, 16f, -9f);
+            camera.transform.LookAt(new Vector3(0f, .7f, 4.2f), Vector3.up);
             camera.nearClipPlane = .15f;
             camera.farClipPlane = 110f;
-            UpdateCameraFraming();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.64f, .80f, .92f); // bright daylight sky
+            camera.backgroundColor = new Color(.69f, .83f, .95f); // daylight sky
 
             // A single, restrained soft-shadow sun. The merged native city
             // casts only from its Surface layer; bot crowds do not cast into
@@ -110,10 +110,10 @@ namespace Swarmforge.Presentation
             lightObject.transform.rotation = Quaternion.Euler(53f, -42f, 0f);
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.color = new Color(1f, .965f, .90f);
-            light.intensity = 1.35f;
+            light.color = new Color(1f, .975f, .94f);
+            light.intensity = 1.42f;
             light.shadows = LightShadows.Soft;
-            light.shadowStrength = .28f;
+            light.shadowStrength = .33f;
             light.shadowBias = .07f;
             light.shadowNormalBias = .35f;
             light.shadowResolution = LightShadowResolution.Low;
@@ -125,8 +125,8 @@ namespace Swarmforge.Presentation
             fillObject.transform.rotation = Quaternion.Euler(32f, 138f, 0f);
             var fill = fillObject.AddComponent<Light>();
             fill.type = LightType.Directional;
-            fill.color = new Color(.67f, .81f, 1f);
-            fill.intensity = .25f;
+            fill.color = new Color(.73f, .83f, 1f);
+            fill.intensity = .33f;
             fill.shadows = LightShadows.None;
         }
 
@@ -134,20 +134,10 @@ namespace Swarmforge.Presentation
         // P9 model's authored front muzzle ends near +0.9535 local Z.
         // The root stays negative by this much; shot birth remains world Z=0.
         private const float Stage2MuzzleBackOffset = .9535f * CannonModelScale;
-        private const float PortraitMinHalfHeight = 12.8f;
-        // The city spans +/-10.7, but showing every remote tower would
-        // shrink the playable center and robots. Frame the boulevard,
-        // grass, trees and portions of the flanking high-rises first.
-        private const float CityRoadsideHalfWidthWithMargin = 7.6f;
-
-        private void UpdateCameraFraming()
-        {
-            // Fit the playable road, left X2 target and roadside vegetation
-            // on 9:16 and narrower phones. Some far exterior towers are
-            // intentionally cropped to keep P8 robots legible.
-            camera.orthographicSize = Mathf.Max(PortraitMinHalfHeight,
-                CityRoadsideHalfWidthWithMargin / Mathf.Max(.1f, camera.aspect));
-        }
+        // Vertical FOV behaves consistently on 9:16 and taller mobile
+        // screens. Exterior high-rises are intentionally allowed to clip at
+        // portrait edges rather than shrinking the entire P8 battle.
+        private const float PerspectiveVerticalFov = 55f;
 
         public Vector3 BoxLabelWorld()
         {
@@ -155,18 +145,19 @@ namespace Swarmforge.Presentation
             return new Vector3(WorldX(b.X), hasNativeArt ? 1.85f : 1.7f, WorldZ(b.Position));
         }
 
-        /// <summary>Screen-space projection of the *visible* cannon rail.</summary>
+        /// <summary>Map a finger X to the projected cannon rail at its own depth.
+        /// Do NOT cast a ray through an arbitrary touch Y: mobile players
+        /// drag across the bottom 28% and the cannon aim must remain stable.
+        /// </summary>
         public int AimFromScreenX(float screenX)
         {
-            float left = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMinX), .5f, 0f)).x;
-            float right = camera.WorldToScreenPoint(new Vector3(WorldX(config.CannonMaxX), .5f, 0f)).x;
-            float t = Mathf.Clamp01((screenX - left) / Mathf.Max(1f, right - left));
-            return Mathf.RoundToInt(Mathf.Lerp(config.CannonMinX, config.CannonMaxX, t));
+            return V12TrialAimProjection.ScreenToAim(camera, screenX,
+                config.CannonMinX, config.CannonMaxX,
+                WorldX(config.CannonMinX), WorldX(config.CannonMaxX));
         }
 
         public void Render(V12TrialSnapshot s)
         {
-            UpdateCameraFraming();
             cannon.transform.position = new Vector3(WorldX(s.CannonX),
                 hasNativeArt ? .02f : .63f,
                 hasNativeArt ? -Stage2MuzzleBackOffset : -.35f);
@@ -315,6 +306,25 @@ namespace Swarmforge.Presentation
         {
             if (root != null) Object.Destroy(root.gameObject);
             for (int i = 0; i < ownedMaterials.Count; i++) Object.Destroy(ownedMaterials[i]);
+        }
+    }
+
+    /// <summary>
+    /// Pure presentation-level X mapping shared by the real pointer path and
+    /// Unity PlayMode regressions. Both rail endpoints are projected at the
+    /// SAME world Y/Z plane, so perspective scaling cannot redirect a shot.
+    /// Sim commands, spawn X and collision remain authoritative elsewhere.
+    /// </summary>
+    public static class V12TrialAimProjection
+    {
+        public static int ScreenToAim(Camera camera, float screenX,
+            int cannonMinX, int cannonMaxX, float leftWorldX, float rightWorldX)
+        {
+            if (camera == null) throw new System.ArgumentNullException(nameof(camera));
+            float left = camera.WorldToScreenPoint(new Vector3(leftWorldX, .5f, 0f)).x;
+            float right = camera.WorldToScreenPoint(new Vector3(rightWorldX, .5f, 0f)).x;
+            float t = Mathf.Clamp01((screenX - left) / Mathf.Max(1f, right - left));
+            return Mathf.RoundToInt(Mathf.Lerp(cannonMinX, cannonMaxX, t));
         }
     }
 }

@@ -67,12 +67,13 @@ namespace Swarmforge.Tests
             Assert.That(green, Is.Not.Null);
             Camera cam = cameraObject.GetComponent<Camera>();
             Assert.That(cam, Is.Not.Null);
-            Assert.That(cam.orthographic, Is.True);
-            Assert.That(cam.transform.eulerAngles.x, Is.InRange(57f, 61f),
-                "Final City needs a lowered oblique view to show the facades.");
-            Assert.That(cam.orthographicSize, Is.GreaterThanOrEqualTo(12.8f));
-            Assert.That(cam.orthographicSize * (9f / 16f), Is.GreaterThan(7f),
-                "At 9:16 the full authored arena width needs room.");
+            Assert.That(cam.orthographic, Is.False,
+                "P11 Owner approved a true perspective trial, not a flat top-down map.");
+            Assert.That(cam.fieldOfView, Is.InRange(52f, 58f));
+            Assert.That(cam.transform.eulerAngles.y, Is.InRange(0f, .01f),
+                "No yaw drift is allowed until touch aim is Unity-retested.");
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(46f, 54f),
+                "Camera must show a convincing elevated street perspective.");
             Assert.That(green.transform.localScale.x, Is.InRange(.75f, .85f));
             Assert.That(cannon.transform.localScale.x, Is.GreaterThanOrEqualTo(.8f));
             Assert.That(Mathf.Abs(cannon.transform.position.z +
@@ -110,9 +111,10 @@ namespace Swarmforge.Tests
             Assert.That(green, Is.Not.Null);
             Assert.That(cameraObject, Is.Not.Null);
             Camera cam = cameraObject.GetComponent<Camera>();
-            Assert.That(cam.orthographic, Is.True);
+            Assert.That(cam.orthographic, Is.False);
+            Assert.That(cam.fieldOfView, Is.InRange(52f, 58f));
             Assert.That(cam.backgroundColor.b, Is.GreaterThan(.85f));
-            Assert.That(cam.transform.eulerAngles.x, Is.InRange(57f, 61f));
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(46f, 54f));
             Assert.That(green.transform.localScale.x, Is.InRange(.75f, .80f));
             Assert.That(Mathf.Abs(green.transform.position.x - cannon.transform.position.x),
                 Is.LessThan(.0001f), "P8 green muzzle aim X must remain exact.");
@@ -138,6 +140,40 @@ namespace Swarmforge.Tests
             Assert.That(entry, Is.Not.Null);
             Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40));
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+        }
+
+        [UnityTest]
+        public IEnumerator V12Trial_P11PerspectiveAimRailMapsTouchToActualCannonX()
+        {
+            // Camera perspective MUST NOT remap a bottom-screen drag to
+            // another lane. Compare the exact helper used by ReadPointer's
+            // V12TrialView path against the real projected muzzle plane.
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            Camera cam = GameObject.Find("V12_Trial_Camera").GetComponent<Camera>();
+            Assert.That(cam.orthographic, Is.False);
+            var definition = V12P2Presets.Create(2);
+            float leftWorldX = -3.2f, rightWorldX = 3.2f;
+            float left = cam.WorldToScreenPoint(new Vector3(leftWorldX, .5f, 0f)).x;
+            float right = cam.WorldToScreenPoint(new Vector3(rightWorldX, .5f, 0f)).x;
+            float center = cam.WorldToScreenPoint(new Vector3(0f, .5f, 0f)).x;
+            Assert.That(left, Is.LessThan(center));
+            Assert.That(center, Is.LessThan(right));
+            Assert.That(V12TrialAimProjection.ScreenToAim(cam, left,
+                definition.CannonMinX, definition.CannonMaxX,
+                leftWorldX, rightWorldX), Is.EqualTo(definition.CannonMinX));
+            Assert.That(V12TrialAimProjection.ScreenToAim(cam, right,
+                definition.CannonMinX, definition.CannonMaxX,
+                leftWorldX, rightWorldX), Is.EqualTo(definition.CannonMaxX));
+            Assert.That(V12TrialAimProjection.ScreenToAim(cam, center,
+                definition.CannonMinX, definition.CannonMaxX,
+                leftWorldX, rightWorldX), Is.EqualTo(0));
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            GameObject green = GameObject.Find("P2_MiniBot");
+            Assert.That(Mathf.Abs(cannon.transform.position.x - green.transform.position.x),
+                Is.LessThan(.0001f), "True green P8 shot stays on the muzzle line.");
+            Assert.That(V12TrialSimulation.BoostFollowupDelayTicks, Is.EqualTo(8));
         }
 
         [UnityTest]
