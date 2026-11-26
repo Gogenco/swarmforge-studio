@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57ed681891864350be32bb9198b12ad7, type: 3}
+  m_Name: P2_HP3
+  m_EditorClassIdentifier:
+  data:
+    SchemaVersion: 2
+    RulesetId: SWARMFORGE_V12_TRIAL
+    LevelId: P2_PLAYABLE_60S
+    ProfileId: P2_HP3
+    TickRate: 30
+    MatchTicks: 1800
+    FirstShotTick: 0
+    ShotPeriodTicks: 30
+    BaseHP: 3
+    FortressHP: 40
+    MiniBotMaxHP: 3
+    MiniBotDamage: 1
+    MiniBotSpeedPerTick: 340
+    MiniBotContactCooldownTicks: 15
+    CannonMinX: -1000
+    CannonMaxX: 1000
+    AttackPathLength: 51000
+    EnemyPathLength: 51000
+    ContactRadius: 450
+    EnemyTypes:
+    - Key: SCOUT
+      MaxHP: 2
+      Damage: 1
+      SpeedPerTick: 230
+      ContactCooldownTicks: 15
+    Boxes:
+    - Key: X2
+      X: -950
+      Position: 9000
+      Radius: 450
+      MaxHP: 5
+      Multiplier: 2
+      DurationTicks: 360
+    Waves:
+    - Tick: 180
+      WarningLeadTicks: 60
+      Spawns:
+      - EnemyKey: SCOUT
+        Lane: -1
+        Count: 2
+      - EnemyKey: SCOUT
+        Lane: 1
+        Count: 2
