@@ -88,19 +88,16 @@ namespace Swarmforge.Presentation
             cameraObject.transform.SetParent(root);
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
-            // P11: a TRUE perspective view, unlike the flat P8/P10 ortho
-            // map. The centered optical axis exposes facade sides/rooftops
-            // and makes foreground mechs legible without magnifying meshes.
-            // Camera has ZERO yaw: projected cannon rail X stays monotonic,
-            // and every P8 touch command still targets its exact sim X.
+            // P12 is closer and lower than the rejected P11 FOV55 camera.
+            // Zero yaw preserves the P8 projected cannon-rail aim mapping.
             camera.orthographic = false;
             camera.fieldOfView = PerspectiveVerticalFov;
-            camera.transform.position = new Vector3(0f, 16f, -9f);
-            camera.transform.LookAt(new Vector3(0f, .7f, 4.2f), Vector3.up);
+            camera.transform.position = new Vector3(0f, 11f, -9f);
+            camera.transform.LookAt(new Vector3(0f, 1f, 4f), Vector3.up);
             camera.nearClipPlane = .15f;
             camera.farClipPlane = 110f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.69f, .83f, .95f); // daylight sky
+            camera.backgroundColor = new Color(.66f, .81f, .94f); // daylight sky
 
             // A single, restrained soft-shadow sun. The merged native city
             // casts only from its Surface layer; bot crowds do not cast into
@@ -111,9 +108,9 @@ namespace Swarmforge.Presentation
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1f, .975f, .94f);
-            light.intensity = 1.42f;
+            light.intensity = 1.34f;
             light.shadows = LightShadows.Soft;
-            light.shadowStrength = .33f;
+            light.shadowStrength = .30f;
             light.shadowBias = .07f;
             light.shadowNormalBias = .35f;
             light.shadowResolution = LightShadowResolution.Low;
@@ -126,7 +123,7 @@ namespace Swarmforge.Presentation
             var fill = fillObject.AddComponent<Light>();
             fill.type = LightType.Directional;
             fill.color = new Color(.73f, .83f, 1f);
-            fill.intensity = .33f;
+            fill.intensity = .27f;
             fill.shadows = LightShadows.None;
         }
 
@@ -134,10 +131,15 @@ namespace Swarmforge.Presentation
         // P9 model's authored front muzzle ends near +0.9535 local Z.
         // The root stays negative by this much; shot birth remains world Z=0.
         private const float Stage2MuzzleBackOffset = .9535f * CannonModelScale;
-        // Vertical FOV behaves consistently on 9:16 and taller mobile
-        // screens. Exterior high-rises are intentionally allowed to clip at
-        // portrait edges rather than shrinking the entire P8 battle.
-        private const float PerspectiveVerticalFov = 55f;
+        // P12 cinematic portrait proposal (Owner Unity validation required).
+        // Exterior skyscraper crowns may clip to keep the P8 road, real
+        // single left chest and both fortresses visibly playable.
+        private const float PerspectiveVerticalFov = 50f;
+        // P12 authored MiniBot has local Z depth 1.315; the true 8-tick
+        // sequential x2 gap is at least ~.84 world units. Narrow ONLY the
+        // render depth to prevent overlapping large heroes. True X/Z stays.
+        private static readonly Vector3 NativeGreenScale = new Vector3(.78f, .80f, .57f);
+        private static readonly Vector3 NativeRedScale = new Vector3(.72f, .72f, .72f);
 
         public Vector3 BoxLabelWorld()
         {
@@ -201,7 +203,7 @@ namespace Swarmforge.Presentation
                     hasNativeArt ? .012f : (greenBot ? .39f : .49f),
                     WorldZ(u.Position) + visualOffset.y);
                 instance.transform.localScale = hasNativeArt ?
-                    Vector3.one * (greenBot ? .77f : .72f) :
+                    (greenBot ? NativeGreenScale : NativeRedScale) :
                     greenBot ? new Vector3(.30f, .32f, .30f) :
                     new Vector3(.54f + .10f * (u.MaxHP - 1), .54f, .54f);
             }
@@ -250,17 +252,17 @@ namespace Swarmforge.Presentation
             return go;
         }
 
-        // City: one combined Surface renderer casts muted silhouettes from
-        // trees/buildings; grass, asphalt, pavement, windows and glow do not
-        // duplicate large shadow-caster geometry. Small static landmarks may
-        // cast; pooled green crowds do not. No new colliders/physics.
+        // P12 Editor generation names the visual groups LOD0_Surface etc.
+        // Restrict the city shadow caster to the merged Surface, not PBR
+        // asphalt/grass/glass/sidewalk render layers. No new physics.
         private static void SetNativeShadowPolicy(GameObject visual, bool city, bool green)
         {
             foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
             {
                 string layer = renderer.gameObject.name;
-                bool glow = layer == "Glow";
-                bool cityCaster = city && layer == "Surface";
+                bool glow = layer == "Glow" || layer.EndsWith("_Glow");
+                bool cityCaster = city &&
+                    (layer == "Surface" || layer == "LOD0_Surface");
                 renderer.shadowCastingMode =
                     !glow && !green && (!city || cityCaster) ?
                     ShadowCastingMode.On : ShadowCastingMode.Off;

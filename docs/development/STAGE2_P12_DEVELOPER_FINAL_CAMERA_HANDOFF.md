@@ -1,0 +1,15 @@
+# SWARMFORGE — Stage 2 P12 cinematic camera / full Owner handoff
+
+Source: Art Director Issue #4 comment 7104100111, exact Art HEAD 4740dae87eb7f59096102fbafac39b51f3421cab. All source Art P12 real meshes, 12 PNG PBR maps and genuine robotic LODs retained in existing Draft PR #26.
+
+Presentation-only camera update: P11 rejected perspective FOV55 at (0,16,-9), look(0,.7,4.2) replaced with a substantially lower/closer 9:16 perspective **FOV50 at (0,11,-9), look(0,1,4)** without yaw. Approximate independent mathematical projection (NOT Unity runtime): cannon y~.25 of portrait, base foot~.15, side single chest x~.14/y~.44 and fortress top~.90 (existing top HUD may cover part). High-rises beyond the near road can be cropped to keep heroes and gameplay visible. Real Game View and photo match are UNVERIFIED until Owner screenshot.
+
+Robot P12 native green visual scale X.78/Y.80/Z.57, preserving 3.21-unit authored mech height and large front armor while reducing render depth of 1.315-unit mesh to ~.75; actual first/follower world separation >=.84. The source simulation positions, x2 +8 tick delay and single-cannon captured-X path are unchanged; no green side offset, fake depth movement or collider modification. Red native scale .72 unchanged.
+
+Natural sun intensity 1.34 with soft shadow strength .30 and fill .27. P12 new generated prefab layer names are LOD0_Surface, LOD0_Asphalt, LOD0_Grass etc. City Surface is selective caster, asphalt/grass/glass/pavement and green crowd do not cast; materials/city texture PBR maps and mask normals are those delivered by Art Director. This still depends on URP shadow support. There are no new lights, rigidbodies or gameplay logic.
+
+Unity acceptance regression source additions: one PlayMode verifies camera/readable true green bot scale and sequential gap constraint; one EditMode verifies three native LOD levels in both bot prefabs and four URP city material albedo/normal/mask textures. Old camera and city tests updated from obsolete FOV55 and Surface to current P12 FOV50 / LOD0_Surface. No existing suites disabled.
+
+Owner: download exact new full project ZIP into fresh folder, Unity 6000.3.28f1, wait for C# and 12 PNG imports, run SWARMFORGE > Stage 2 > Generate and Integrate P8 Art to regenerate all seven native prefabs and P12 materials. Then open Assets/Swarmforge/Scenes/V12_Trial.unity, Game View 9:16, Play. Compare ACTUAL Game screenshot to Owner approved photo; inspect towering 8+9 high-rises, 18 lush trees, PBR textured road, robot limbs, daylight, camera occlusion, left chest and both bases. Run full Unity EditMode/PlayMode+Console and touch aim, x1 1/s, true x2 t/t+8 same X, left one HP5 x2 chest 12s, central red C1-C6 combat, HP2/HP3, fortress40/base3, Win/Lose/Timeout/Restart/replay, legacy Battle. Profile actual low-end device memory/FPS. Report test counts from Unity only; current source is NOT Unity verified.
+
+No changes to P8 simulation, base/scene/config, main, GitHub Actions or workflows. No merge, rebase, force push, Stage3/4/5 or VS02.

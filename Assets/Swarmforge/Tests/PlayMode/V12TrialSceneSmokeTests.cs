@@ -50,7 +50,7 @@ namespace Swarmforge.Tests
         }
 
         [UnityTest]
-        public IEnumerator V12Trial_P9PortraitFramingAndHeroScalePreserveLogicalMuzzle()
+        public IEnumerator V12Trial_P12PortraitFramingAndHeroScalePreserveLogicalMuzzle()
         {
             SceneManager.LoadScene("V12_Trial");
             yield return null;
@@ -69,11 +69,11 @@ namespace Swarmforge.Tests
             Assert.That(cam, Is.Not.Null);
             Assert.That(cam.orthographic, Is.False,
                 "P11 Owner approved a true perspective trial, not a flat top-down map.");
-            Assert.That(cam.fieldOfView, Is.InRange(52f, 58f));
+            Assert.That(cam.fieldOfView, Is.InRange(49f, 51f));
             Assert.That(cam.transform.eulerAngles.y, Is.InRange(0f, .01f),
                 "No yaw drift is allowed until touch aim is Unity-retested.");
-            Assert.That(cam.transform.eulerAngles.x, Is.InRange(46f, 54f),
-                "Camera must show a convincing elevated street perspective.");
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(35f, 41f),
+                "P12 must look forward into the street instead of overhead.");
             Assert.That(green.transform.localScale.x, Is.InRange(.75f, .85f));
             Assert.That(cannon.transform.localScale.x, Is.GreaterThanOrEqualTo(.8f));
             Assert.That(Mathf.Abs(cannon.transform.position.z +
@@ -112,9 +112,9 @@ namespace Swarmforge.Tests
             Assert.That(cameraObject, Is.Not.Null);
             Camera cam = cameraObject.GetComponent<Camera>();
             Assert.That(cam.orthographic, Is.False);
-            Assert.That(cam.fieldOfView, Is.InRange(52f, 58f));
+            Assert.That(cam.fieldOfView, Is.InRange(49f, 51f));
             Assert.That(cam.backgroundColor.b, Is.GreaterThan(.85f));
-            Assert.That(cam.transform.eulerAngles.x, Is.InRange(46f, 54f));
+            Assert.That(cam.transform.eulerAngles.x, Is.InRange(35f, 41f));
             Assert.That(green.transform.localScale.x, Is.InRange(.75f, .80f));
             Assert.That(Mathf.Abs(green.transform.position.x - cannon.transform.position.x),
                 Is.LessThan(.0001f), "P8 green muzzle aim X must remain exact.");
@@ -130,7 +130,7 @@ namespace Swarmforge.Tests
             var sun = GameObject.Find("V12_Trial_Light").GetComponent<Light>();
             Assert.That(sun.shadows, Is.EqualTo(LightShadows.Soft));
             Assert.That(sun.shadowStrength, Is.InRange(.2f, .4f));
-            var citySurface = city.transform.Find("Surface");
+            var citySurface = city.transform.Find("LOD0_Surface");
             Assert.That(citySurface, Is.Not.Null);
             Assert.That(citySurface.GetComponent<Renderer>().shadowCastingMode,
                 Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.On));
@@ -140,6 +140,35 @@ namespace Swarmforge.Tests
             Assert.That(entry, Is.Not.Null);
             Assert.That(entry.CurrentSnapshot.FortressHP, Is.EqualTo(40));
             Assert.That(entry.CurrentSnapshot.BoxHP, Is.EqualTo(5));
+        }
+
+        [UnityTest]
+        public IEnumerator V12Trial_P12HeroModelIsReadableWithoutCrossingTrueX2Gap()
+        {
+            SceneManager.LoadScene("V12_Trial");
+            yield return null;
+            yield return null;
+            Camera cam = GameObject.Find("V12_Trial_Camera").GetComponent<Camera>();
+            GameObject green = GameObject.Find("P2_MiniBot");
+            GameObject cannon = GameObject.Find("P2_Auto_Cannon");
+            Assert.That(cam, Is.Not.Null);
+            Assert.That(green, Is.Not.Null);
+            Assert.That(cannon, Is.Not.Null);
+            Assert.That(cam.orthographic, Is.False);
+            Assert.That(green.transform.localScale.x, Is.InRange(.77f, .79f));
+            Assert.That(green.transform.localScale.y, Is.InRange(.79f, .81f));
+            Assert.That(green.transform.localScale.z, Is.InRange(.56f, .59f));
+            Assert.That(Mathf.Abs(green.transform.position.x - cannon.transform.position.x),
+                Is.LessThan(.0001f));
+            float minimumGap = 7f * 340f * 18f / 51000f;
+            Assert.That(1.315f * green.transform.localScale.z, Is.LessThan(minimumGap),
+                "P12 native mesh body depth must leave space for true +8 tick follower.");
+            Vector3 foot = cam.WorldToViewportPoint(green.transform.position);
+            Vector3 helmet = cam.WorldToViewportPoint(green.transform.position +
+                Vector3.up * (3.2078f * green.transform.localScale.y));
+            Assert.That(helmet.y - foot.y, Is.GreaterThan(.10f),
+                "P12 foreground green mech should be readable at 9:16.");
+            Assert.That(V12TrialSimulation.BoostFollowupDelayTicks, Is.EqualTo(8));
         }
 
         [UnityTest]
